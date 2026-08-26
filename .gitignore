@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.DS_Store
+*.tgz
+*.whl

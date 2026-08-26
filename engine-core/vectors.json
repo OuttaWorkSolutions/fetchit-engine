@@ -1,0 +1,134 @@
+{
+  "note": "Parity contract for fetchit-engine (Python) and @fetchit/engine (JS). Each vector's CleanResult must be identical across both engines. Run: node packages/js/test/parity.mjs",
+  "vectors": [
+    {
+      "name": "empty",
+      "input": ""
+    },
+    {
+      "name": "plain-untouched",
+      "input": "just some ordinary text here"
+    },
+    {
+      "name": "double-space-no-dash-untouched",
+      "input": "hello,  world"
+    },
+    {
+      "name": "zwsp-and-em-dash",
+      "input": "AI helped\u200b write this \u2014 now clean it."
+    },
+    {
+      "name": "collapse-elsewhere-when-dash-present",
+      "input": "a  b \u2014 c"
+    },
+    {
+      "name": "nbsp-and-spaced-en-dash",
+      "input": "Nonbreaking\u00a0space and en \u2013 dash here."
+    },
+    {
+      "name": "bare-en-dash-preserved",
+      "input": "page range 3\u20135 stays intact"
+    },
+    {
+      "name": "horizontal-bar",
+      "input": "quote \u2015 attribution here"
+    },
+    {
+      "name": "space-before-punct-after-dash",
+      "input": "a word \u2014 , and punctuation"
+    },
+    {
+      "name": "soft-hyphen",
+      "input": "sof\u00adt hyphen inside a word"
+    },
+    {
+      "name": "bidi-controls",
+      "input": "text \u202ereversed\u202c back"
+    },
+    {
+      "name": "bom-and-word-joiner",
+      "input": "\ufeffstart\u2060joined end"
+    },
+    {
+      "name": "astral-tag-block-invisible",
+      "input": "hidden\udb40\udc41tag data"
+    },
+    {
+      "name": "emoji-then-phrase-offset",
+      "input": "\ud83d\ude00 delve into it"
+    },
+    {
+      "name": "astral-between-phrase-and-dash",
+      "input": "rich tapestry \ud83c\udf00 spans \u2014 seamlessly"
+    },
+    {
+      "name": "overlapping-phrase-longest-wins",
+      "input": "a rich tapestry of ideas"
+    },
+    {
+      "name": "enumerators-word-boundary",
+      "input": "Firstly this. Moreover that. Additionally more."
+    },
+    {
+      "name": "phrase-and-enumerator-mixed",
+      "input": "It's important to note that firstly, moreover."
+    },
+    {
+      "name": "turkish-dotted-I-no-length-drift",
+      "input": "\u0130STANBUL delve DEL\u0130GHT tapestry"
+    },
+    {
+      "name": "uppercase-sharp-s-no-drift",
+      "input": "GRO\u1e9eE delve seamlessly here"
+    },
+    {
+      "name": "fullwidth-not-matched",
+      "input": "\uff24\uff25\uff2c\uff36\uff25 delve real"
+    },
+    {
+      "name": "many-invisibles-run",
+      "input": "x\u200b\u200c\u200dy end"
+    },
+    {
+      "name": "consecutive-odd-spaces-with-dash",
+      "input": "a  b \u2014 c"
+    },
+    {
+      "name": "ai-heavy-multi-signal",
+      "input": "It is important to note that this framework plays a crucial role. Firstly, it delivers value. Secondly, it scales. Moreover, it adapts to a wide range of needs \u2014 seamlessly and meticulously. The system is fast, clear, and robust. Teams find it clear, concise, and compelling. In conclusion, this is a testament to modern design that we should underscore."
+    },
+    {
+      "name": "option-disable-dash",
+      "input": "keep this \u2014 dash edit off",
+      "options": {
+        "rules": {
+          "disable": [
+            "dash.spaced"
+          ]
+        }
+      }
+    },
+    {
+      "name": "option-custom-phrase",
+      "input": "please circle back to me soon",
+      "options": {
+        "rules": {
+          "customPhrases": [
+            "circle back"
+          ]
+        }
+      }
+    },
+    {
+      "name": "option-disable-invisible",
+      "input": "drop\u200b nothing here",
+      "options": {
+        "rules": {
+          "disable": [
+            "invisible.zero-width"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,898 @@
+<title>Fetch It AI Review Widget</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --ground:#EEF0F3; --card:#FFFFFF; --ink:#1E2328; --muted:#5A6069;
+    --navy:#233966; --red:#AC1D39; --line:#D7DBE1;
+    --code-bg:#F4F5F7; --code-ink:#233966;
+    --fr-card:#FFFFFF; --fr-ground:#F5F6F8; --fr-ink:#1E2328; --fr-line:#D7DBE1;
+    --fr-muted:#5A6069;
+  }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --ground:#0F1116; --card:#1A1E27; --ink:#E9EAEE; --muted:#9BA2AD;
+    --navy:#9DB2E6; --red:#E7647F; --line:#2C323D;
+    --code-bg:#12151C; --code-ink:#B7C6EE;
+    --fr-card:#1D212A; --fr-ground:#161A21; --fr-ink:#E9EAEE; --fr-line:#2E3440;
+    --fr-muted:#9BA2AD;
+  }}
+  :root[data-theme="dark"]{
+    --ground:#0F1116; --card:#1A1E27; --ink:#E9EAEE; --muted:#9BA2AD;
+    --navy:#9DB2E6; --red:#E7647F; --line:#2C323D;
+    --code-bg:#12151C; --code-ink:#B7C6EE;
+    --fr-card:#1D212A; --fr-ground:#161A21; --fr-ink:#E9EAEE; --fr-line:#2E3440;
+    --fr-muted:#9BA2AD;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:"Segoe UI Variable","Segoe UI",-apple-system,system-ui,Arial,sans-serif;
+    line-height:1.6; -webkit-text-size-adjust:100%;
+  }
+  .page{max-width:860px; margin:0 auto; padding:48px 24px 72px;}
+  header{margin-bottom:26px;}
+  .eyebrow{font-size:.76rem; text-transform:uppercase; letter-spacing:.08em; font-weight:700; color:var(--red); margin:0 0 8px;}
+  h1{font-size:clamp(1.6rem,4vw,2.1rem); line-height:1.15; letter-spacing:-.02em; color:var(--navy); margin:0 0 12px; text-wrap:balance;}
+  .lede{font-size:1.05rem; color:var(--muted); margin:0; max-width:60ch;}
+  fetchit-review{
+    --fr-card:var(--fr-card); --fr-ground:var(--fr-ground); --fr-ink:var(--fr-ink);
+    --fr-line:var(--fr-line); --fr-muted:var(--fr-muted); --fr-navy:var(--navy); --fr-red:var(--red);
+    display:block; margin:8px 0;
+    box-shadow:0 10px 30px rgba(20,25,35,.10);
+  }
+  .caption{font-size:.9rem; color:var(--muted); margin:0 0 4px;}
+  .out{margin-top:22px; border:1px solid var(--line); border-radius:12px; background:var(--card); padding:18px 20px;}
+  .out h2{font-size:.82rem; text-transform:uppercase; letter-spacing:.05em; color:var(--navy); margin:0 0 6px;}
+  .out p.hint{font-size:.85rem; color:var(--muted); margin:0 0 10px;}
+  #out-text{white-space:pre-wrap; word-break:break-word; font-size:.95rem; margin:0;
+    background:var(--code-bg); border-radius:8px; padding:12px 14px;}
+  .own{margin-top:34px;}
+  .own h2{font-size:.82rem; text-transform:uppercase; letter-spacing:.05em; color:var(--navy); margin:0 0 8px;}
+  textarea{width:100%; min-height:96px; border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+    font:inherit; line-height:1.55; background:var(--card); color:var(--ink); resize:vertical;}
+  .btns{display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;}
+  button.act{font:inherit; font-weight:650; border:0; border-radius:9px; padding:9px 18px; cursor:pointer; background:var(--red); color:#fff;}
+  button.act.ghost{background:transparent; color:var(--navy); border:1.5px solid var(--line);}
+  button.act:focus-visible, textarea:focus-visible{outline:3px solid var(--red); outline-offset:2px;}
+  .how{margin-top:40px; border-top:1px solid var(--line); padding-top:24px;}
+  .how h2{font-size:.82rem; text-transform:uppercase; letter-spacing:.05em; color:var(--navy); margin:0 0 10px;}
+  pre{margin:0; overflow-x:auto; background:var(--code-bg); border-radius:10px; padding:16px 18px;}
+  code{font-family:"Cascadia Mono","Cascadia Code",Consolas,ui-monospace,monospace; font-size:.86rem; color:var(--code-ink);}
+  .note{font-size:.8rem; color:var(--muted); margin:14px 0 0;}
+</style>
+
+<div class="page">
+  <header>
+    <p class="eyebrow">Fetch It AI &middot; developer widget</p>
+    <h1>Review before you send</h1>
+    <p class="lede">A drop-in panel a developer mounts in their own app. It cleans AI-generated text,
+      color-codes what changed and what still reads as AI, lets the person accept, reject, or edit, then
+      hands back the final text. Everything runs in the browser; the text never leaves the page.</p>
+  </header>
+
+  <p class="caption">Live widget, running on sample AI copy:</p>
+  <div id="mount"></div>
+
+  <div class="out" id="out" hidden>
+    <h2>Your app received</h2>
+    <p class="hint">This is the exact string passed to <code>onApply(finalText)</code> when the reviewer clicked "Use this text".</p>
+    <p id="out-text"></p>
+  </div>
+
+  <div class="own">
+    <h2>Try your own text</h2>
+    <textarea id="own" placeholder="Paste anything with em dashes, hidden characters, or AI-sounding phrasing..."></textarea>
+    <div class="btns">
+      <button class="act" id="load">Review it</button>
+      <button class="act ghost" id="reset">Reset to sample</button>
+    </div>
+  </div>
+
+  <div class="how">
+    <h2>How a developer adds it</h2>
+    <pre><code>import { attachReview } from "@fetchit/review";
+
+attachReview(document.querySelector("#compose"), {
+  text: aiDraft,
+  onApply: (finalText) =&gt; sendEmail(finalText),
+});</code></pre>
+    <p class="note">One import, one call. No API key, no network, no server. The same @fetchit/engine that powers fetchitai.com runs locally inside the widget.</p>
+  </div>
+</div>
+
+<script>
+const FetchitEngine = (function () {
+const ruleset = {"rulesetVersion":"2026-08-18","phrases":[{"id":"ai-wording.delve","text":"delve"},{"id":"ai-wording.delving","text":"delving"},{"id":"ai-wording.tapestry","text":"tapestry"},{"id":"ai-wording.seamlessly","text":"seamlessly"},{"id":"ai-wording.meticulously","text":"meticulously"},{"id":"ai-wording.myriad","text":"myriad"},{"id":"ai-wording.plethora","text":"plethora"},{"id":"ai-wording.underscore","text":"underscore"},{"id":"ai-wording.multifaceted","text":"multifaceted"},{"id":"ai-wording.unleash","text":"unleash"},{"id":"ai-wording.unveil","text":"unveil"},{"id":"ai-wording.nuanced","text":"nuanced"},{"id":"ai-wording.pivotal","text":"pivotal"},{"id":"ai-wording.commendable","text":"commendable"},{"id":"ai-wording.noteworthy","text":"noteworthy"},{"id":"ai-wording.intricate","text":"intricate"},{"id":"ai-wording.realm","text":"realm"},{"id":"ai-wording.landscape","text":"landscape"},{"id":"ai-wording.testament","text":"testament"},{"id":"ai-wording.it-is-important-to-note","text":"it is important to note"},{"id":"ai-wording.it-s-important-to-note","text":"it's important to note"},{"id":"ai-wording.it-s-worth-noting","text":"it's worth noting"},{"id":"ai-wording.it-is-worth-noting","text":"it is worth noting"},{"id":"ai-wording.that-being-said","text":"that being said"},{"id":"ai-wording.when-it-comes-to","text":"when it comes to"},{"id":"ai-wording.first-and-foremost","text":"first and foremost"},{"id":"ai-wording.at-the-end-of-the-day","text":"at the end of the day"},{"id":"ai-wording.in-today-s-fast-paced","text":"in today's fast-paced"},{"id":"ai-wording.in-an-era-of","text":"in an era of"},{"id":"ai-wording.in-the-realm-of","text":"in the realm of"},{"id":"ai-wording.on-the-other-hand","text":"on the other hand"},{"id":"ai-wording.more-than-just","text":"more than just"},{"id":"ai-wording.plays-a-crucial-role","text":"plays a crucial role"},{"id":"ai-wording.plays-a-vital-role","text":"plays a vital role"},{"id":"ai-wording.plays-a-significant-role","text":"plays a significant role"},{"id":"ai-wording.a-wide-range-of","text":"a wide range of"},{"id":"ai-wording.a-wide-array-of","text":"a wide array of"},{"id":"ai-wording.various-factors","text":"various factors"},{"id":"ai-wording.it-is-essential-to","text":"it is essential to"},{"id":"ai-wording.it-is-crucial-to","text":"it is crucial to"},{"id":"ai-wording.there-are-several","text":"there are several"},{"id":"ai-wording.ever-evolving","text":"ever-evolving"},{"id":"ai-wording.ever-changing","text":"ever-changing"},{"id":"ai-wording.game-changer","text":"game-changer"},{"id":"ai-wording.game-changer-2","text":"game changer"},{"id":"ai-wording.testament-to","text":"testament to"},{"id":"ai-wording.paving-the-way","text":"paving the way"},{"id":"ai-wording.look-no-further","text":"look no further"},{"id":"ai-wording.beacon-of","text":"beacon of"},{"id":"ai-wording.elevate-your","text":"elevate your"},{"id":"ai-wording.unlock-the-full-potential","text":"unlock the full potential"},{"id":"ai-wording.unlock-the-power","text":"unlock the power"},{"id":"ai-wording.embark-on-a-journey","text":"embark on a journey"},{"id":"ai-wording.navigating-the-complexities","text":"navigating the complexities"},{"id":"ai-wording.navigating-the","text":"navigating the"},{"id":"ai-wording.holistic-approach","text":"holistic approach"},{"id":"ai-wording.at-its-core","text":"at its core"},{"id":"ai-wording.let-s-dive-in","text":"let's dive in"},{"id":"ai-wording.dive-deeper","text":"dive deeper"},{"id":"ai-wording.rich-tapestry","text":"rich tapestry"},{"id":"ai-wording.treasure-trove","text":"treasure trove"},{"id":"ai-wording.in-conclusion","text":"in conclusion,"},{"id":"ai-wording.in-summary","text":"in summary,"},{"id":"ai-wording.to-sum-up","text":"to sum up"},{"id":"ai-wording.ultimately","text":"ultimately,"}],"enumerators":[{"id":"ai-enumerator.firstly","text":"firstly"},{"id":"ai-enumerator.secondly","text":"secondly"},{"id":"ai-enumerator.thirdly","text":"thirdly"},{"id":"ai-enumerator.fourthly","text":"fourthly"},{"id":"ai-enumerator.lastly","text":"lastly"},{"id":"ai-enumerator.moreover","text":"moreover"},{"id":"ai-enumerator.furthermore","text":"furthermore"},{"id":"ai-enumerator.additionally","text":"additionally"},{"id":"ai-enumerator.consequently","text":"consequently"}],"invisibleRanges":[{"min":173,"max":173,"id":"invisible.soft-hyphen","label":"soft hyphen"},{"min":6158,"max":6158,"id":"invisible.format","label":"Mongolian vowel separator"},{"min":8203,"max":8205,"id":"invisible.zero-width","label":"zero-width character"},{"min":8206,"max":8207,"id":"invisible.bidi","label":"bidirectional mark"},{"min":8234,"max":8238,"id":"invisible.bidi","label":"bidirectional control"},{"min":8288,"max":8292,"id":"invisible.zero-width","label":"word joiner / invisible operator"},{"min":8293,"max":8303,"id":"invisible.format","label":"format control"},{"min":65279,"max":65279,"id":"invisible.zero-width","label":"byte-order mark"},{"min":917504,"max":917631,"id":"invisible.tag-block","label":"Unicode tag character"}],"oddSpaceRanges":[{"min":160,"max":160},{"min":8192,"max":8202},{"min":8239,"max":8239},{"min":8287,"max":8287},{"min":12288,"max":12288}],"oddSpaceRuleId":"space.lookalike","oddSpaceLabel":"look-alike space","thresholds":{"MIN_CHARS":200,"MIN_WORDS":40,"levelModerate":20,"levelHigh":45}};
+/*
+ * @fetchit/engine - deterministic text cleanup and AI-writing heuristics.
+ *
+ * Emits the language-neutral CleanResult contract shared with fetchit-engine
+ * (Python). Ported in lockstep; packages/engine-core/vectors.json is the
+ * contract both sides must satisfy.
+ *
+ * Every offset in a result is a CODE POINT into the input (offsetUnit
+ * "codePoint"), so JS and Python agree regardless of astral characters. DOM
+ * hosts that paint highlights convert with toUtf16Offsets() below.
+ *
+ * Zero runtime dependencies. Runs in browsers, Node, Deno, Bun, and workerd.
+ */
+
+const ENGINE_VERSION = "0.1.0";
+const RULESET_VERSION = ruleset.rulesetVersion;
+
+const PHRASES = ruleset.phrases;
+const ENUMERATORS = ruleset.enumerators;
+const INVISIBLE_RANGES = ruleset.invisibleRanges;
+const ODD_SPACE_RANGES = ruleset.oddSpaceRanges;
+const ODD_SPACE_RULE_ID = ruleset.oddSpaceRuleId;
+const ODD_SPACE_LABEL = ruleset.oddSpaceLabel;
+const MIN_CHARS = ruleset.thresholds.MIN_CHARS;
+const MIN_WORDS = ruleset.thresholds.MIN_WORDS;
+const LEVEL_MODERATE = ruleset.thresholds.levelModerate;
+const LEVEL_HIGH = ruleset.thresholds.levelHigh;
+
+// Regexes that are logic, not data (mirror text_tools.py; may contain dashes).
+const EM_DASH_RE = /[ \t]*[—―][ \t]*|[ \t]+–[ \t]+/g;
+const MULTI_SPACE_RE = /[ \t]{2,}/g;
+const SPACE_BEFORE_PUNCT_RE = /[ \t]+([,.;:!?])/g;
+// Whitespace classes are written out as ASCII [ \t\n\r\f\v] rather than \s so
+// they match Python's re.ASCII \s exactly; JS \s otherwise also matches Unicode
+// spaces, which Python (ASCII) would not. \b and \d are already ASCII in JS.
+const RULE_OF_THREE_RE = /\b[A-Za-z]+,[ \t\n\r\f\v]+[A-Za-z]+,[ \t\n\r\f\v]+and[ \t\n\r\f\v]+[A-Za-z]+\b/gi;
+const LIST_MARKER_RE = /^[ \t\n\r\f\v]*(?:[-*•·]|\d+[.)])[ \t\n\r\f\v]+/gm;
+const CONTRACTION_RE = /\b[A-Za-z]+'(?:t|s|re|ve|ll|d|m)\b/gi;
+const WORD_RE = /[A-Za-z']+/g;
+
+// One shared whitespace set for trimming, identical to Python _WS.
+const WS = new Set([
+  0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x85, 0xa0,
+  0x1680, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff,
+]);
+for (let c = 0x2000; c <= 0x200a; c++) WS.add(c);
+
+function engineStrip(text) {
+  let a = 0, b = text.length;
+  while (a < b && WS.has(text.charCodeAt(a))) a++;
+  while (b > a && WS.has(text.charCodeAt(b - 1))) b--;
+  return text.slice(a, b);
+}
+
+function codePointLength(s) {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    n++;
+    if (s.charCodeAt(i) >= 0xd800 && s.charCodeAt(i) <= 0xdbff) i++;
+  }
+  return n;
+}
+
+const DASH_RULE = ["dash.spaced", "dash", "Replaced a spaced dash with a space"];
+const COLLAPSE_RULE = ["space.collapse", "space", "Collapsed repeated spaces"];
+const SPACE_BEFORE_RULE = ["punct.space-before", "space", "Removed a space before punctuation"];
+
+const RULE_PRIORITY = {
+  "dash.spaced": 40,
+  "space.lookalike": 30,
+  "space.collapse": 20,
+  "punct.space-before": 15,
+};
+
+// Lowercase only A-Z: length- and position-preserving, so offsets map 1:1 onto
+// the input. Every rule phrase is ASCII, so this never misses a match, and it
+// is identical to _ascii_lower in Python.
+function asciiLower(text) {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    const o = text.charCodeAt(i);
+    out += o >= 65 && o <= 90 ? String.fromCharCode(o + 32) : text[i];
+  }
+  return out;
+}
+
+function invisibleRule(cp) {
+  for (const r of INVISIBLE_RANGES) {
+    if (cp >= r.min && cp <= r.max) return r;
+  }
+  return null;
+}
+
+function isOddSpace(cp) {
+  for (const r of ODD_SPACE_RANGES) {
+    if (cp >= r.min && cp <= r.max) return true;
+  }
+  return false;
+}
+
+// Map every UTF-16 index of `text` to its code-point index (length + 1 entries).
+function utf16ToCodePointMap(text) {
+  const map = new Array(text.length + 1);
+  let cp = 0;
+  for (let i = 0; i < text.length; ) {
+    const code = text.codePointAt(i);
+    const units = code > 0xffff ? 2 : 1;
+    for (let u = 0; u < units; u++) map[i + u] = cp;
+    i += units;
+    cp += 1;
+  }
+  map[text.length] = cp;
+  return map;
+}
+
+// One working-buffer unit, carrying provenance back to the input.
+class Cell {
+  constructor(text, src0, src1, rule = null) {
+    this.text = text; // "" for a deletion
+    this.src0 = src0; // half-open code-point range in the INPUT
+    this.src1 = src1;
+    this.rule = rule; // [ruleId, category, message] or null
+  }
+}
+
+// Run a regex over the string the cells currently spell, replacing each match's
+// cell range with a single edit cell. Match indices are UTF-16; cell boundaries
+// are tracked in UTF-16 units too, and these regexes only match BMP characters,
+// so matches always align to cell boundaries.
+function regexPass(cells, regex, replacementFn, rule) {
+  const current = cells.map((c) => c.text).join("");
+  regex.lastIndex = 0;
+  if (!regex.test(current)) return cells;
+  const starts = [];
+  let pos = 0;
+  for (const c of cells) {
+    starts.push(pos);
+    pos += c.text.length;
+  }
+  starts.push(pos);
+  const cellAt = (offset) => {
+    let lo = 0, hi = cells.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (starts[mid] < offset) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+
+  const out = [];
+  let last = 0;
+  regex.lastIndex = 0;
+  let m;
+  while ((m = regex.exec(current)) !== null) {
+    const a = m.index;
+    const b = m.index + m[0].length;
+    const ci = cellAt(a);
+    const cj = cellAt(b);
+    for (let k = last; k < ci; k++) out.push(cells[k]);
+    const merged = cells.slice(ci, cj);
+    const src0 = merged[0].src0;
+    const src1 = merged[merged.length - 1].src1;
+    let best = rule;
+    let bestPri = RULE_PRIORITY[rule[0]] || 0;
+    for (const c of merged) {
+      if (c.rule && (RULE_PRIORITY[c.rule[0]] || 0) > bestPri) {
+        best = c.rule;
+        bestPri = RULE_PRIORITY[c.rule[0]] || 0;
+      }
+    }
+    out.push(new Cell(replacementFn(m), src0, src1, best));
+    last = cj;
+    if (m[0].length === 0) regex.lastIndex++; // guard against zero-width loops
+  }
+  for (let k = last; k < cells.length; k++) out.push(cells[k]);
+  return out;
+}
+
+// Pass A: invisible removal and look-alike-space normalization, per code point.
+// A disabled rule leaves its characters untouched.
+function buildCells(cps, disabled) {
+  const cells = [];
+  for (let i = 0; i < cps.length; i++) {
+    const cp = cps[i].codePointAt(0);
+    const inv = invisibleRule(cp);
+    if (inv && !disabled.has(inv.id)) {
+      cells.push(new Cell("", i, i + 1, [inv.id, "invisible", "Removed " + inv.label]));
+    } else if (isOddSpace(cp) && !disabled.has(ODD_SPACE_RULE_ID)) {
+      cells.push(new Cell(" ", i, i + 1, [ODD_SPACE_RULE_ID, "space", "Normalized a " + ODD_SPACE_LABEL]));
+    } else {
+      cells.push(new Cell(cps[i], i, i + 1, null));
+    }
+  }
+  return cells;
+}
+
+function cleanCells(text, disabled) {
+  const cps = Array.from(text); // code-point array
+  let cells = buildCells(cps, disabled);
+  const rebuilt = cells.map((c) => c.text).join("");
+  EM_DASH_RE.lastIndex = 0;
+  if (EM_DASH_RE.test(rebuilt)) {
+    if (!disabled.has(DASH_RULE[0])) cells = regexPass(cells, EM_DASH_RE, () => " ", DASH_RULE);
+    if (!disabled.has(COLLAPSE_RULE[0])) cells = regexPass(cells, MULTI_SPACE_RE, () => " ", COLLAPSE_RULE);
+    if (!disabled.has(SPACE_BEFORE_RULE[0])) cells = regexPass(cells, SPACE_BEFORE_PUNCT_RE, (m) => m[1], SPACE_BEFORE_RULE);
+  }
+  const cleaned = cells.map((c) => c.text).join("");
+  return { cleaned, cells, cps };
+}
+
+function cellsToEdits(cells, cps) {
+  const edits = [];
+  let n = 0;
+  for (const c of cells) {
+    if (c.rule === null) continue;
+    const original = cps.slice(c.src0, c.src1).join("");
+    if (original === c.text) continue;
+    n += 1;
+    const [ruleId, category, message] = c.rule;
+    edits.push({
+      id: "e" + n,
+      ruleId,
+      category,
+      severity: "auto",
+      start: c.src0,
+      end: c.src1,
+      original,
+      replacement: c.text,
+      message,
+    });
+  }
+  return edits;
+}
+
+// --- public building blocks -------------------------------------------------
+
+function rebuildText(text) {
+  const cps = Array.from(text);
+  const cells = buildCells(cps, new Set());
+  let changed = 0;
+  for (const c of cells) {
+    if (c.rule !== null && cps.slice(c.src0, c.src1).join("") !== c.text) changed++;
+  }
+  return { text: cells.map((c) => c.text).join(""), changed };
+}
+
+function removeEmDashes(text) {
+  const matches = text.match(EM_DASH_RE);
+  const count = matches ? matches.length : 0;
+  if (!count) return { text, count: 0 };
+  let out = text.replace(EM_DASH_RE, " ");
+  out = out.replace(MULTI_SPACE_RE, " ");
+  out = out.replace(SPACE_BEFORE_PUNCT_RE, "$1");
+  return { text: out, count };
+}
+
+function applyEdits(text, acceptedIds, edits) {
+  const accepted = new Set(acceptedIds);
+  const chosen = edits.filter((e) => accepted.has(e.id)).sort((a, b) => b.start - a.start);
+  let cps = Array.from(text);
+  for (const e of chosen) {
+    cps.splice(e.start, e.end - e.start, ...Array.from(e.replacement));
+  }
+  return cps.join("");
+}
+
+function findAiFlags(text) {
+  const lowered = asciiLower(text);
+  const u2cp = utf16ToCodePointMap(text);
+  const raw = [];
+  for (const p of PHRASES) {
+    const phrase = p.text;
+    let start = lowered.indexOf(phrase);
+    while (start !== -1) {
+      raw.push([start, start + phrase.length, p.id, phrase]);
+      start = lowered.indexOf(phrase, start + phrase.length);
+    }
+  }
+  for (const w of ENUMERATORS) {
+    const re = new RegExp("\\b" + escapeRe(w.text) + "\\b", "g");
+    let m;
+    while ((m = re.exec(lowered)) !== null) {
+      raw.push([m.index, m.index + m[0].length, w.id, w.text]);
+    }
+  }
+  // sort/greedy in UTF-16 space (BMP phrases -> identical ordering to code points)
+  raw.sort((a, b) => a[0] - b[0] || (b[1] - b[0]) - (a[1] - a[0]));
+  const chosen = [];
+  let reached = 0;
+  for (const [s, e, rid, matched] of raw) {
+    if (s >= reached) {
+      chosen.push({ ruleId: rid, start: u2cp[s], end: u2cp[e], text: sliceUtf16(text, s, e), matched });
+      reached = e;
+    }
+  }
+  return chosen;
+}
+
+function sliceUtf16(text, a, b) {
+  return text.slice(a, b);
+}
+
+function escapeRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findAiSpans(text) {
+  return findAiFlags(text).map((f) => [f.start, f.end]);
+}
+
+// Non-overlapping substring count (Python str.count semantics).
+function countOccurrences(haystack, needle) {
+  let n = 0, i = 0;
+  while ((i = haystack.indexOf(needle, i)) !== -1) {
+    n += 1;
+    i += needle.length;
+  }
+  return n;
+}
+
+function countMatches(str, re) {
+  const m = str.match(re);
+  return m ? m.length : 0;
+}
+
+function splitWords(s) {
+  return s.split(/[ \t\n\r\f\v]+/).filter(Boolean);
+}
+
+// Split on whitespace after . ! or ?, without a lookbehind (Safari < 16.4
+// treats an unsupported lookbehind literal as a syntax error). Same result as
+// Python re.split(r"(?<=[.!?])\s+").
+function splitSentences(text) {
+  const out = [];
+  const re = /([.!?])([ \t\n\r\f\v]+)/g;
+  let start = 0;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    out.push(text.slice(start, m.index + 1));
+    start = m.index + m[0].length;
+  }
+  out.push(text.slice(start));
+  return out;
+}
+
+function analyzeAiSignals(text) {
+  const stripped = engineStrip(text);
+  if (!stripped) return { status: "empty" };
+  const words = stripped.match(WORD_RE) || [];
+  const strippedLen = codePointLength(stripped); // code points, to match Python len()
+  if (strippedLen < MIN_CHARS || words.length < MIN_WORDS) {
+    return { status: "too_short" };
+  }
+
+  let score = 0;
+  const signals = [];
+  const lowered = asciiLower(stripped);
+
+  const dashCount =
+    countOccurrences(stripped, "—") +
+    countOccurrences(stripped, "–") +
+    countOccurrences(stripped, "―");
+  const dashRate = (dashCount / strippedLen) * 1000;
+  if (dashRate > 3) {
+    score += 25;
+    signals.push({ id: "signal.dash-density", points: 25, message: `Heavy em-dash use (${dashCount} dashes)` });
+  } else if (dashRate > 1.2) {
+    score += 12;
+    signals.push({ id: "signal.dash-density", points: 12, message: `Frequent em-dash use (${dashCount} dashes)` });
+  }
+
+  const found = PHRASES.map((p) => p.text).filter((p) => lowered.includes(p));
+  if (found.length) {
+    let occurrences = 0;
+    for (const p of found) occurrences += countOccurrences(lowered, p);
+    const pts = Math.min(30, 10 * found.length);
+    score += pts;
+    const shown = found.slice(0, 4).map((p) => `"${p}"`).join(", ");
+    const extra = found.length > 4 ? ` and ${found.length - 4} more` : "";
+    signals.push({ id: "signal.stock-phrases", points: pts, message: `AI-associated wording: ${shown}${extra} (${occurrences} occurrence(s))` });
+  }
+
+  const contractions = countMatches(stripped, CONTRACTION_RE);
+  if (words.length >= 120 && (contractions / words.length) * 100 < 0.5) {
+    score += 10;
+    signals.push({ id: "signal.contractions", points: 10, message: "Almost no contractions (stiff, formal tone)" });
+  }
+
+  const sentences = splitSentences(stripped).filter((s) => splitWords(s).length >= 3);
+  if (sentences.length >= 6) {
+    const lengths = sentences.map((s) => splitWords(s).length);
+    const mean = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+    const variance = lengths.reduce((a, n) => a + (n - mean) * (n - mean), 0) / lengths.length;
+    if (mean && Math.sqrt(variance) / mean < 0.35) {
+      score += 15;
+      signals.push({ id: "signal.sentence-uniformity", points: 15, message: "Unusually uniform sentence lengths" });
+    }
+  }
+
+  const triads = countMatches(stripped, RULE_OF_THREE_RE);
+  if (triads >= 3) {
+    score += 12;
+    signals.push({ id: "signal.rule-of-three", points: 12, message: `Frequent rule-of-three lists (${triads} triads)` });
+  } else if (triads === 2) {
+    score += 6;
+    signals.push({ id: "signal.rule-of-three", points: 6, message: "Some rule-of-three phrasing" });
+  }
+
+  let enumHits = 0;
+  for (const w of ENUMERATORS) {
+    enumHits += countMatches(lowered, new RegExp("\\b" + escapeRe(w.text) + "\\b", "g"));
+  }
+  const markerHits = countMatches(text, LIST_MARKER_RE);
+  const listSignal = enumHits + markerHits;
+  if (listSignal >= 4) {
+    score += 12;
+    signals.push({ id: "signal.list-structure", points: 12, message: "Heavily list-structured (enumerators / bullets)" });
+  } else if (listSignal >= 2) {
+    score += 6;
+    signals.push({ id: "signal.list-structure", points: 6, message: "Somewhat list-structured" });
+  }
+
+  score = Math.min(score, 100);
+  const level = score >= LEVEL_HIGH ? "high" : score >= LEVEL_MODERATE ? "moderate" : "low";
+  return { status: "ok", score, level, signals };
+}
+
+// Convert a CleanResult's code-point offsets to UTF-16 for DOM hosts. Returns a
+// shallow copy with start/end on edits and flags remapped; input.length and
+// cleaned.length are left as code-point lengths (they describe the strings).
+function toUtf16Offsets(result, inputText) {
+  const map = utf16ToCodePointMap(inputText);
+  const inv = new Array(map[inputText.length] + 1);
+  for (let u = 0; u <= inputText.length; u++) {
+    if (inv[map[u]] === undefined) inv[map[u]] = u;
+  }
+  inv[map[inputText.length]] = inputText.length;
+  const remap = (arr) => arr.map((x) => ({ ...x, start: inv[x.start], end: inv[x.end] }));
+  return {
+    ...result,
+    offsetUnit: "utf16CodeUnit",
+    edits: remap(result.edits),
+    flags: remap(result.flags),
+  };
+}
+
+function clean(text, options = {}) {
+  const rules = options.rules || {};
+  const disabled = new Set(rules.disable || []);
+  const custom = rules.customPhrases || [];
+
+  const { cleaned, cells, cps } = cleanCells(text, disabled);
+  const edits = cellsToEdits(cells, cps);
+
+  let flagHits = findAiFlags(text);
+  if (custom.length) {
+    const lowered = asciiLower(text);
+    const u2cp = utf16ToCodePointMap(text);
+    for (const phrase of custom) {
+      const needle = asciiLower(phrase);
+      if (!needle) continue;
+      let start = lowered.indexOf(needle);
+      while (start !== -1) {
+        flagHits.push({
+          ruleId: "ai-custom." + needle.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+          start: u2cp[start],
+          end: u2cp[start + needle.length],
+          text: text.slice(start, start + needle.length),
+          matched: needle,
+        });
+        start = lowered.indexOf(needle, start + needle.length);
+      }
+    }
+    flagHits.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+    const deduped = [];
+    let reached = 0;
+    for (const h of flagHits) {
+      if (h.start >= reached) {
+        deduped.push(h);
+        reached = h.end;
+      }
+    }
+    flagHits = deduped;
+  }
+
+  const flags = [];
+  let fn = 0;
+  for (const h of flagHits) {
+    if (disabled.has(h.ruleId)) continue;
+    fn += 1;
+    flags.push({
+      id: "f" + fn,
+      ruleId: h.ruleId,
+      category: "ai-wording",
+      severity: "suggest",
+      start: h.start,
+      end: h.end,
+      text: h.text,
+      replacement: null,
+      message: "AI-associated wording",
+    });
+  }
+
+  const report = analyzeAiSignals(text);
+  const invisibleN = edits.filter((e) => e.category === "invisible").length;
+  const oddSpaceN = edits.filter((e) => e.ruleId === "space.lookalike").length;
+  const dashesN = edits.filter((e) => e.ruleId === "dash.spaced").length;
+  const cpLen = Array.from(text).length;
+
+  return {
+    engineVersion: ENGINE_VERSION,
+    rulesetVersion: RULESET_VERSION,
+    offsetUnit: "codePoint",
+    input: { length: cpLen },
+    cleaned: { text: cleaned, length: Array.from(cleaned).length },
+    edits,
+    flags,
+    aiReport: report,
+    summary: {
+      invisible: invisibleN,
+      oddSpaces: oddSpaceN,
+      dashes: dashesN,
+      hidden: invisibleN + oddSpaceN,
+      flagged: flags.length,
+    },
+  };
+}
+
+return { clean, applyEdits, findAiSpans, analyzeAiSignals, rebuildText, removeEmDashes, toUtf16Offsets };
+})();
+const { clean, applyEdits, findAiSpans, analyzeAiSignals } = FetchitEngine;
+/*
+ * @fetchit/review - a drop-in "review before you send" panel.
+ *
+ * Mounts a <fetchit-review> web component (shadow DOM, themeable via CSS custom
+ * properties) that takes AI-generated text, runs @fetchit/engine locally, shows
+ * the cleaned text with color-coded highlights, lets the end user accept/reject
+ * each class of auto-fix and edit the text by hand, then hands the final text
+ * back through onApply(finalText, receipt). No network; the text never leaves
+ * the page.
+ *
+ * Usage:
+ *   import { attachReview } from "@fetchit/review";
+ *   attachReview(document.querySelector("#compose"), {
+ *     text: aiDraft,
+ *     onApply: (finalText, receipt) => sendEmail(finalText),
+ *   });
+ */
+
+const CATEGORY_LABEL = {
+  invisible: "Hidden characters",
+  space: "Look-alike spaces",
+  dash: "Em dashes",
+};
+
+const STYLE = `
+:host {
+  --fr-red: #AC1D39;
+  --fr-navy: #233966;
+  --fr-ink: #1E2328;
+  --fr-muted: #5A6069;
+  --fr-line: #D3D7DD;
+  --fr-card: #FFFFFF;
+  --fr-ground: #F4F5F7;
+  --fr-flag: #FCE9B6;
+  --fr-flag-border: #E0A93B;
+  --fr-removed: #F6C9CE;
+  --fr-radius: 12px;
+  --fr-font: "Segoe UI Variable","Segoe UI",-apple-system,system-ui,Arial,sans-serif;
+  display: block;
+  font-family: var(--fr-font);
+  color: var(--fr-ink);
+}
+* { box-sizing: border-box; }
+.wrap {
+  border: 1px solid var(--fr-line); border-radius: var(--fr-radius);
+  background: var(--fr-card); overflow: hidden;
+  display: grid; grid-template-columns: 1fr 300px;
+}
+@media (max-width: 720px) { .wrap { grid-template-columns: 1fr; } }
+.main { padding: 18px 20px; min-width: 0; }
+.side { border-left: 1px solid var(--fr-line); background: var(--fr-ground); padding: 18px 18px; }
+@media (max-width: 720px) { .side { border-left: 0; border-top: 1px solid var(--fr-line); } }
+.title { font-weight: 700; font-size: 1.02rem; color: var(--fr-navy); margin: 0 0 12px; }
+.review {
+  border: 1px solid var(--fr-line); border-radius: 10px; background: #fff;
+  padding: 14px 16px; min-height: 150px; line-height: 1.6; font-size: .98rem;
+  white-space: pre-wrap; word-break: break-word;
+}
+.review mark {
+  background: var(--fr-flag); border-bottom: 2px solid var(--fr-flag-border);
+  border-radius: 3px; padding: 0 1px; cursor: help;
+}
+textarea.edit {
+  width: 100%; min-height: 150px; border: 1px solid var(--fr-navy); border-radius: 10px;
+  padding: 14px 16px; font: inherit; line-height: 1.6; resize: vertical; color: var(--fr-ink);
+}
+.row { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+.btn {
+  font: inherit; font-weight: 650; border: 0; border-radius: 9px; padding: 10px 20px;
+  cursor: pointer; background: var(--fr-red); color: #fff;
+}
+.btn:hover { filter: brightness(.94); }
+.btn.ghost { background: transparent; color: var(--fr-navy); border: 1.5px solid var(--fr-line); }
+.btn.ghost:hover { border-color: var(--fr-navy); filter: none; }
+.meter-label { display: flex; justify-content: space-between; align-items: baseline; font-size: .85rem; color: var(--fr-muted); }
+.badge { font-weight: 700; font-size: .82rem; padding: 2px 9px; border-radius: 999px; color: #fff; }
+.badge.low { background: #2E7D46; } .badge.moderate { background: #C9820A; } .badge.high { background: var(--fr-red); }
+.meter { height: 8px; border-radius: 999px; background: #E3E6EB; overflow: hidden; margin: 6px 0 4px; }
+.meter > i { display: block; height: 100%; }
+.meter.low > i { background: #2E7D46; } .meter.moderate > i { background: #C9820A; } .meter.high > i { background: var(--fr-red); }
+.sec { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--fr-muted); margin: 18px 0 8px; font-weight: 700; }
+.fix { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px dashed var(--fr-line); font-size: .9rem; }
+.fix:last-child { border-bottom: 0; }
+.fix input { width: 16px; height: 16px; accent-color: var(--fr-red); }
+.fix .n { margin-left: auto; color: var(--fr-muted); font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: var(--fr-flag); border: 1px solid var(--fr-flag-border); border-radius: 999px; padding: 2px 10px; font-size: .82rem; }
+.empty { color: var(--fr-muted); font-size: .88rem; font-style: italic; }
+.foot { margin-top: 14px; font-size: .72rem; color: var(--fr-muted); text-align: right; }
+.foot a { color: var(--fr-muted); }
+`;
+
+function cpToUtf16Spans(text, cpSpans) {
+  const cps = Array.from(text);
+  const map = new Array(cps.length + 1);
+  let u = 0;
+  for (let i = 0; i < cps.length; i++) { map[i] = u; u += cps[i].length; }
+  map[cps.length] = u;
+  return cpSpans.map(([s, e]) => [map[s], map[e]]);
+}
+
+class FetchitReview extends HTMLElement {
+  constructor() {
+    super();
+    this._root = this.attachShadow({ mode: "open" });
+    this._input = "";
+    this._onApply = null;
+    this._rejected = new Set(); // categories the user turned off
+    this._working = null;       // manual-edit text; null = use auto-clean
+    this._editing = false;
+  }
+
+  set text(v) { this._input = v == null ? "" : String(v); this._working = null; this._rejected.clear(); this._render(); }
+  get text() { return this._input; }
+  set onApply(fn) { this._onApply = fn; }
+
+  connectedCallback() { if (!this._root.firstChild) this._render(); }
+
+  _finalText() {
+    if (this._working != null) return this._working;
+    const r = clean(this._input);
+    const accepted = r.edits.filter((e) => !this._rejected.has(e.category)).map((e) => e.id);
+    return applyEdits(this._input, accepted, r.edits);
+  }
+
+  _render() {
+    const result = clean(this._input);
+    const text = this._finalText();
+    const report = analyzeAiSignals(text);
+    const level = report.status === "ok" ? report.level : "low";
+    const score = report.status === "ok" ? report.score : 0;
+
+    // group auto-edits by category for the accept/reject toggles
+    const byCat = {};
+    for (const e of result.edits) byCat[e.category] = (byCat[e.category] || 0) + 1;
+
+    // AI-phrase highlights on the CURRENT text (what the user will send)
+    const spans = cpToUtf16Spans(text, findAiSpans(text));
+    const phrases = [...new Set(spans.map(([s, e]) => text.slice(s, e)))];
+
+    const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    let reviewHtml = "";
+    if (!this._editing) {
+      let cur = 0;
+      for (const [s, e] of spans) {
+        if (s > cur) reviewHtml += esc(text.slice(cur, s));
+        reviewHtml += `<mark title="AI-associated wording. Consider rewording.">${esc(text.slice(s, e))}</mark>`;
+        cur = e;
+      }
+      reviewHtml += esc(text.slice(cur));
+      if (!text) reviewHtml = `<span class="empty">Nothing to review yet.</span>`;
+    }
+
+    const fixesHtml = Object.keys(CATEGORY_LABEL)
+      .filter((cat) => byCat[cat])
+      .map((cat) => `
+        <label class="fix">
+          <input type="checkbox" data-cat="${cat}" ${this._rejected.has(cat) ? "" : "checked"}>
+          <span>${CATEGORY_LABEL[cat]}</span>
+          <span class="n">${byCat[cat]}</span>
+        </label>`).join("") || `<div class="empty">No automatic fixes needed.</div>`;
+
+    const phrasesHtml = phrases.length
+      ? `<div class="chips">${phrases.map((p) => `<span class="chip">${esc(p)}</span>`).join("")}</div>`
+      : `<div class="empty">No AI-sounding phrases found.</div>`;
+
+    this._root.innerHTML = `
+      <style>${STYLE}</style>
+      <div class="wrap">
+        <div class="main">
+          <p class="title">Review before you send</p>
+          ${this._editing
+            ? `<textarea class="edit">${esc(text)}</textarea>`
+            : `<div class="review">${reviewHtml}</div>`}
+          <div class="row">
+            <button class="btn" id="apply">Use this text</button>
+            <button class="btn ghost" id="copy">Copy</button>
+            <button class="btn ghost" id="edit">${this._editing ? "Done editing" : "Edit by hand"}</button>
+          </div>
+        </div>
+        <div class="side">
+          <div class="meter-label">
+            <span>AI-writing signals</span>
+            <span class="badge ${level}">${level.toUpperCase()}</span>
+          </div>
+          <div class="meter ${level}"><i style="width:${score}%"></i></div>
+          <div class="sec">Automatic fixes</div>
+          ${fixesHtml}
+          <div class="sec">AI-sounding phrases</div>
+          ${phrasesHtml}
+          <div class="foot">Powered by <a href="https://fetchitai.com" target="_blank" rel="noopener">Fetch It AI</a></div>
+        </div>
+      </div>`;
+
+    this._root.querySelectorAll('input[data-cat]').forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const cat = cb.getAttribute("data-cat");
+        if (cb.checked) this._rejected.delete(cat); else this._rejected.add(cat);
+        this._working = null; // toggles operate on the auto-clean, not a hand edit
+        this._render();
+      });
+    });
+    const applyBtn = this._root.getElementById("apply");
+    applyBtn.addEventListener("click", () => {
+      const finalText = this._finalText();
+      if (this._onApply) this._onApply(finalText, { rulesetVersion: result.rulesetVersion, rejected: [...this._rejected] });
+      this.dispatchEvent(new CustomEvent("apply", { detail: { text: finalText } }));
+    });
+    this._root.getElementById("copy").addEventListener("click", () => {
+      const t = this._finalText();
+      if (navigator.clipboard) navigator.clipboard.writeText(t).catch(() => {});
+    });
+    this._root.getElementById("edit").addEventListener("click", () => {
+      if (this._editing) {
+        const ta = this._root.querySelector("textarea.edit");
+        this._working = ta ? ta.value : this._working;
+      }
+      this._editing = !this._editing;
+      this._render();
+      if (this._editing) { const ta = this._root.querySelector("textarea.edit"); if (ta) ta.focus(); }
+    });
+  }
+}
+
+if (typeof customElements !== "undefined" && !customElements.get("fetchit-review")) {
+  customElements.define("fetchit-review", FetchitReview);
+}
+
+function attachReview(host, options = {}) {
+  const el = document.createElement("fetchit-review");
+  if (options.text != null) el.text = options.text;
+  if (options.onApply) el.onApply = options.onApply;
+  host.appendChild(el);
+  return el;
+}
+
+{ FetchitReview };
+
+
+const SAMPLE = "It is important to note that our platform delves into a rich tapestry of solutions — seamlessly and meticulously. Firstly, it unlocks the full potential of your data. Moreover, it plays a crucial role in navigating the complexities of a wide range of needs. In conclusion, this is a testament to innovation.​";
+const mount = document.getElementById("mount");
+const out = document.getElementById("out");
+const outText = document.getElementById("out-text");
+const review = attachReview(mount, {
+  text: SAMPLE,
+  onApply: (finalText) => {
+    out.hidden = false;
+    outText.textContent = finalText;
+    out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  },
+});
+document.getElementById("load").addEventListener("click", () => {
+  const v = document.getElementById("own").value;
+  review.text = v || SAMPLE;
+  out.hidden = true;
+});
+document.getElementById("reset").addEventListener("click", () => {
+  document.getElementById("own").value = "";
+  review.text = SAMPLE;
+  out.hidden = true;
+});
+</script>

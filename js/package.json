@@ -1,0 +1,43 @@
+{
+  "name": "@fetchit/engine",
+  "version": "0.1.0",
+  "description": "Deterministic text cleanup and AI-writing heuristics. Runs entirely in your process; your users' text never leaves it.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "ai text",
+    "cleanup",
+    "invisible characters",
+    "em dash",
+    "text hygiene"
+  ],
+  "types": "./src/index.d.ts",
+  "scripts": {
+    "build": "node ../engine-core/build.mjs",
+    "test": "node test/parity.mjs && node test/tool-inline.mjs"
+  },
+  "author": "Outta Work Solutions",
+  "homepage": "https://fetchitai.com/developers",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OuttaWorkSolutions/fetchit-engine.git",
+    "directory": "js"
+  },
+  "bugs": {
+    "url": "https://github.com/OuttaWorkSolutions/fetchit-engine/issues",
+    "email": "support@fetchitai.com"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "@fetchit/review",
+  "version": "0.1.0",
+  "description": "Drop-in review panel: clean AI text, color-code what changed, let the reader accept/reject/edit, and hand back the final copy. Runs entirely in the browser.",
+  "type": "module",
+  "main": "./review.js",
+  "exports": {
+    ".": "./review.js"
+  },
+  "files": [
+    "review.js",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": [
+    "./review.js"
+  ],
+  "peerDependencies": {
+    "@fetchit/engine": "^0.1.0"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "ai text",
+    "review",
+    "web component",
+    "cleanup",
+    "human-in-the-loop"
+  ],
+  "author": "Outta Work Solutions",
+  "homepage": "https://fetchitai.com/developers",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OuttaWorkSolutions/fetchit-engine.git",
+    "directory": "js/review"
+  },
+  "bugs": {
+    "url": "https://github.com/OuttaWorkSolutions/fetchit-engine/issues",
+    "email": "support@fetchitai.com"
+  }
+}
