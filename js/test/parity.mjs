@@ -12,6 +12,13 @@ import { fileURLToPath } from "node:url";
 import { clean, applyEdits } from "../src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
+// Read the character ranges from the single-source ruleset rather than
+// re-declaring them, so the invariant cannot drift from the engine.
+const rulesetData = JSON.parse(
+  readFileSync(join(here, "..", "..", "engine-core", "ruleset.json"), "utf8"),
+);
+const INVISIBLE_RANGES = rulesetData.invisibleRanges;
+const ODD_SPACE_RANGES = rulesetData.oddSpaceRanges;
 const root = join(here, "..", "..");
 const vectors = JSON.parse(readFileSync(join(root, "engine-core", "vectors.json"), "utf8")).vectors;
 
@@ -84,6 +91,45 @@ vectors.forEach((v, i) => {
       console.log(`FAIL flag offset not codepoint  [${v.name}] ${f.id}`);
       break;
     }
+  }
+
+  // invariant: the summary accounts for every character actually removed.
+  //
+  // This is measured against the input and the output rather than against the
+  // edit list, so it cannot be satisfied by whichever rule happened to fire.
+  // Both engines once reported hidden: 0 for " <ZWSP> " because space.collapse
+  // swallowed the span, and a cross-engine diff could never catch it: they were
+  // wrong in exactly the same way. This invariant would have.
+  const countIn = (s, pred) => {
+    let n = 0;
+    for (const ch of s) if (pred(ch.codePointAt(0))) n += 1;
+    return n;
+  };
+  const isInvisibleCp = (cp) => INVISIBLE_RANGES.some((r) => cp >= r.min && cp <= r.max);
+  const isOddSpaceCp = (cp) => ODD_SPACE_RANGES.some((r) => cp >= r.min && cp <= r.max);
+
+  const invisibleRemoved =
+    countIn(v.input, isInvisibleCp) - countIn(js.cleaned.text, isInvisibleCp);
+  const oddSpacesRemoved =
+    countIn(v.input, isOddSpaceCp) - countIn(js.cleaned.text, isOddSpaceCp);
+
+  if (js.summary.invisible !== invisibleRemoved) {
+    failures++;
+    console.log(
+      `FAIL summary.invisible  [${v.name}] reported ${js.summary.invisible}, actually removed ${invisibleRemoved}`,
+    );
+  }
+  if (js.summary.oddSpaces !== oddSpacesRemoved) {
+    failures++;
+    console.log(
+      `FAIL summary.oddSpaces  [${v.name}] reported ${js.summary.oddSpaces}, actually removed ${oddSpacesRemoved}`,
+    );
+  }
+  if (js.summary.hidden !== invisibleRemoved + oddSpacesRemoved) {
+    failures++;
+    console.log(
+      `FAIL summary.hidden  [${v.name}] reported ${js.summary.hidden}, actually removed ${invisibleRemoved + oddSpacesRemoved}`,
+    );
   }
 });
 

@@ -2,7 +2,7 @@
 
 Two things are versioned here, and they move independently:
 
-- **Engine version** is the package version (`@fetchit/engine`, `fetchit-engine`).
+- **Engine version** is the package version (`@fetchitai/engine`, `fetchit-engine`).
   It follows semver and is kept in lockstep across both languages: npm 1.4.0 and
   pip 1.4.0 behave identically.
 - **Ruleset version** (`rulesetVersion`, a date) covers the AI phrase list, the
@@ -13,6 +13,28 @@ Two things are versioned here, and they move independently:
 ## Unreleased
 
 Nothing yet.
+
+## 0.1.1 - ruleset 2026-08-18
+
+Patch release. Cleaning behaviour is unchanged; only the reported counts move.
+
+**Fixed: `summary` under-reported removed characters.**
+
+Counts were attributed by which rule fired, so a broader rule that swallowed a
+span hid what was inside it. `" <ZWSP> "` is collapsed by `space.collapse`,
+which removed the zero-width space while reporting `invisible: 0` and
+`hidden: 0`. `summary.hidden` is the number a caller shows a user ("stripped N
+hidden characters"), so it could claim nothing was stripped when something was.
+
+Counts are now taken from the characters each edit actually consumed, which is
+exact regardless of which rule did the removing. Both engines had the bug
+identically, which is why cross-language parity never caught it.
+
+**Also:** the parity harness and the standalone Python checks now verify the
+summary against the input and the output rather than re-deriving it from the
+edit list. The old check re-implemented the engine's own attribution, so it
+agreed with the engine even when both were wrong. Four vectors cover invisible
+and look-alike characters adjacent to spaces.
 
 ## 0.1.0 - ruleset 2026-08-18
 
@@ -50,7 +72,7 @@ First public release.
   on U+FEFF, and Python's Unicode `\b` / `\d` / `\s` versus JavaScript's ASCII
   defaults.
 
-**`@fetchit/review` 0.1.0**
+**`@fetchitai/review` 0.1.0**
 
 - `<fetchit-review>` web component, shadow DOM, themeable through `--fr-*` custom
   properties. Per category accept and reject with live rescoring, hand edit mode,

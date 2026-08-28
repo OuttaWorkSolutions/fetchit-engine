@@ -89,13 +89,13 @@
 
   <div class="how">
     <h2>How a developer adds it</h2>
-    <pre><code>import { attachReview } from "@fetchit/review";
+    <pre><code>import { attachReview } from "@fetchitai/review";
 
 attachReview(document.querySelector("#compose"), {
   text: aiDraft,
   onApply: (finalText) =&gt; sendEmail(finalText),
 });</code></pre>
-    <p class="note">One import, one call. No API key, no network, no server. The same @fetchit/engine that powers fetchitai.com runs locally inside the widget.</p>
+    <p class="note">One import, one call. No API key, no network, no server. The same @fetchitai/engine that powers fetchitai.com runs locally inside the widget.</p>
   </div>
 </div>
 
@@ -103,7 +103,7 @@ attachReview(document.querySelector("#compose"), {
 const FetchitEngine = (function () {
 const ruleset = {"rulesetVersion":"2026-08-18","phrases":[{"id":"ai-wording.delve","text":"delve"},{"id":"ai-wording.delving","text":"delving"},{"id":"ai-wording.tapestry","text":"tapestry"},{"id":"ai-wording.seamlessly","text":"seamlessly"},{"id":"ai-wording.meticulously","text":"meticulously"},{"id":"ai-wording.myriad","text":"myriad"},{"id":"ai-wording.plethora","text":"plethora"},{"id":"ai-wording.underscore","text":"underscore"},{"id":"ai-wording.multifaceted","text":"multifaceted"},{"id":"ai-wording.unleash","text":"unleash"},{"id":"ai-wording.unveil","text":"unveil"},{"id":"ai-wording.nuanced","text":"nuanced"},{"id":"ai-wording.pivotal","text":"pivotal"},{"id":"ai-wording.commendable","text":"commendable"},{"id":"ai-wording.noteworthy","text":"noteworthy"},{"id":"ai-wording.intricate","text":"intricate"},{"id":"ai-wording.realm","text":"realm"},{"id":"ai-wording.landscape","text":"landscape"},{"id":"ai-wording.testament","text":"testament"},{"id":"ai-wording.it-is-important-to-note","text":"it is important to note"},{"id":"ai-wording.it-s-important-to-note","text":"it's important to note"},{"id":"ai-wording.it-s-worth-noting","text":"it's worth noting"},{"id":"ai-wording.it-is-worth-noting","text":"it is worth noting"},{"id":"ai-wording.that-being-said","text":"that being said"},{"id":"ai-wording.when-it-comes-to","text":"when it comes to"},{"id":"ai-wording.first-and-foremost","text":"first and foremost"},{"id":"ai-wording.at-the-end-of-the-day","text":"at the end of the day"},{"id":"ai-wording.in-today-s-fast-paced","text":"in today's fast-paced"},{"id":"ai-wording.in-an-era-of","text":"in an era of"},{"id":"ai-wording.in-the-realm-of","text":"in the realm of"},{"id":"ai-wording.on-the-other-hand","text":"on the other hand"},{"id":"ai-wording.more-than-just","text":"more than just"},{"id":"ai-wording.plays-a-crucial-role","text":"plays a crucial role"},{"id":"ai-wording.plays-a-vital-role","text":"plays a vital role"},{"id":"ai-wording.plays-a-significant-role","text":"plays a significant role"},{"id":"ai-wording.a-wide-range-of","text":"a wide range of"},{"id":"ai-wording.a-wide-array-of","text":"a wide array of"},{"id":"ai-wording.various-factors","text":"various factors"},{"id":"ai-wording.it-is-essential-to","text":"it is essential to"},{"id":"ai-wording.it-is-crucial-to","text":"it is crucial to"},{"id":"ai-wording.there-are-several","text":"there are several"},{"id":"ai-wording.ever-evolving","text":"ever-evolving"},{"id":"ai-wording.ever-changing","text":"ever-changing"},{"id":"ai-wording.game-changer","text":"game-changer"},{"id":"ai-wording.game-changer-2","text":"game changer"},{"id":"ai-wording.testament-to","text":"testament to"},{"id":"ai-wording.paving-the-way","text":"paving the way"},{"id":"ai-wording.look-no-further","text":"look no further"},{"id":"ai-wording.beacon-of","text":"beacon of"},{"id":"ai-wording.elevate-your","text":"elevate your"},{"id":"ai-wording.unlock-the-full-potential","text":"unlock the full potential"},{"id":"ai-wording.unlock-the-power","text":"unlock the power"},{"id":"ai-wording.embark-on-a-journey","text":"embark on a journey"},{"id":"ai-wording.navigating-the-complexities","text":"navigating the complexities"},{"id":"ai-wording.navigating-the","text":"navigating the"},{"id":"ai-wording.holistic-approach","text":"holistic approach"},{"id":"ai-wording.at-its-core","text":"at its core"},{"id":"ai-wording.let-s-dive-in","text":"let's dive in"},{"id":"ai-wording.dive-deeper","text":"dive deeper"},{"id":"ai-wording.rich-tapestry","text":"rich tapestry"},{"id":"ai-wording.treasure-trove","text":"treasure trove"},{"id":"ai-wording.in-conclusion","text":"in conclusion,"},{"id":"ai-wording.in-summary","text":"in summary,"},{"id":"ai-wording.to-sum-up","text":"to sum up"},{"id":"ai-wording.ultimately","text":"ultimately,"}],"enumerators":[{"id":"ai-enumerator.firstly","text":"firstly"},{"id":"ai-enumerator.secondly","text":"secondly"},{"id":"ai-enumerator.thirdly","text":"thirdly"},{"id":"ai-enumerator.fourthly","text":"fourthly"},{"id":"ai-enumerator.lastly","text":"lastly"},{"id":"ai-enumerator.moreover","text":"moreover"},{"id":"ai-enumerator.furthermore","text":"furthermore"},{"id":"ai-enumerator.additionally","text":"additionally"},{"id":"ai-enumerator.consequently","text":"consequently"}],"invisibleRanges":[{"min":173,"max":173,"id":"invisible.soft-hyphen","label":"soft hyphen"},{"min":6158,"max":6158,"id":"invisible.format","label":"Mongolian vowel separator"},{"min":8203,"max":8205,"id":"invisible.zero-width","label":"zero-width character"},{"min":8206,"max":8207,"id":"invisible.bidi","label":"bidirectional mark"},{"min":8234,"max":8238,"id":"invisible.bidi","label":"bidirectional control"},{"min":8288,"max":8292,"id":"invisible.zero-width","label":"word joiner / invisible operator"},{"min":8293,"max":8303,"id":"invisible.format","label":"format control"},{"min":65279,"max":65279,"id":"invisible.zero-width","label":"byte-order mark"},{"min":917504,"max":917631,"id":"invisible.tag-block","label":"Unicode tag character"}],"oddSpaceRanges":[{"min":160,"max":160},{"min":8192,"max":8202},{"min":8239,"max":8239},{"min":8287,"max":8287},{"min":12288,"max":12288}],"oddSpaceRuleId":"space.lookalike","oddSpaceLabel":"look-alike space","thresholds":{"MIN_CHARS":200,"MIN_WORDS":40,"levelModerate":20,"levelHigh":45}};
 /*
- * @fetchit/engine - deterministic text cleanup and AI-writing heuristics.
+ * @fetchitai/engine - deterministic text cleanup and AI-writing heuristics.
  *
  * Emits the language-neutral CleanResult contract shared with fetchit-engine
  * (Python). Ported in lockstep; packages/engine-core/vectors.json is the
@@ -116,7 +116,7 @@ const ruleset = {"rulesetVersion":"2026-08-18","phrases":[{"id":"ai-wording.delv
  * Zero runtime dependencies. Runs in browsers, Node, Deno, Bun, and workerd.
  */
 
-const ENGINE_VERSION = "0.1.0";
+const ENGINE_VERSION = "0.1.1";
 const RULESET_VERSION = ruleset.rulesetVersion;
 
 const PHRASES = ruleset.phrases;
@@ -607,8 +607,22 @@ function clean(text, options = {}) {
   }
 
   const report = analyzeAiSignals(text);
-  const invisibleN = edits.filter((e) => e.category === "invisible").length;
-  const oddSpaceN = edits.filter((e) => e.ruleId === "space.lookalike").length;
+  // Count the characters an edit actually CONSUMED, not the rule that fired.
+  //
+  // Attributing by ruleId undercounts: a broader rule can swallow a span that
+  // contained invisible characters. " <ZWSP> " is collapsed by space.collapse,
+  // which removed the zero-width space while reporting hidden: 0. Since no
+  // replacement ever contains an invisible or look-alike character, counting
+  // them in `original` is exact regardless of which rule did the removing.
+  const countConsumed = (pred) => {
+    let n = 0;
+    for (const e of edits) {
+      for (const ch of e.original) if (pred(ch.codePointAt(0))) n += 1;
+    }
+    return n;
+  };
+  const invisibleN = countConsumed((cp) => invisibleRule(cp) !== null);
+  const oddSpaceN = countConsumed(isOddSpace);
   const dashesN = edits.filter((e) => e.ruleId === "dash.spaced").length;
   const cpLen = Array.from(text).length;
 
@@ -635,17 +649,17 @@ return { clean, applyEdits, findAiSpans, analyzeAiSignals, rebuildText, removeEm
 })();
 const { clean, applyEdits, findAiSpans, analyzeAiSignals } = FetchitEngine;
 /*
- * @fetchit/review - a drop-in "review before you send" panel.
+ * @fetchitai/review - a drop-in "review before you send" panel.
  *
  * Mounts a <fetchit-review> web component (shadow DOM, themeable via CSS custom
- * properties) that takes AI-generated text, runs @fetchit/engine locally, shows
+ * properties) that takes AI-generated text, runs @fetchitai/engine locally, shows
  * the cleaned text with color-coded highlights, lets the end user accept/reject
  * each class of auto-fix and edit the text by hand, then hands the final text
  * back through onApply(finalText, receipt). No network; the text never leaves
  * the page.
  *
  * Usage:
- *   import { attachReview } from "@fetchit/review";
+ *   import { attachReview } from "@fetchitai/review";
  *   attachReview(document.querySelector("#compose"), {
  *     text: aiDraft,
  *     onApply: (finalText, receipt) => sendEmail(finalText),
@@ -824,7 +838,7 @@ class FetchitReview extends HTMLElement {
           ${fixesHtml}
           <div class="sec">AI-sounding phrases</div>
           ${phrasesHtml}
-          <div class="foot">Powered by <a href="https://fetchitai.com" target="_blank" rel="noopener">Fetch It AI</a></div>
+          ${this.badge === false ? "" : `<div class="foot">Powered by <a href="https://fetchitai.com" target="_blank" rel="noopener">Fetch It AI</a></div>`}
         </div>
       </div>`;
 
@@ -866,6 +880,9 @@ function attachReview(host, options = {}) {
   const el = document.createElement("fetchit-review");
   if (options.text != null) el.text = options.text;
   if (options.onApply) el.onApply = options.onApply;
+  // Attribution is on by default and off on request. Under Apache-2.0 a
+  // caller could delete the markup anyway, so gating it would be theatre.
+  if (options.badge === false) el.badge = false;
   host.appendChild(el);
   return el;
 }

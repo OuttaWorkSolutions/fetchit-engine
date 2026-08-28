@@ -1,21 +1,21 @@
 /*
- * @fetchit/review - a drop-in "review before you send" panel.
+ * @fetchitai/review - a drop-in "review before you send" panel.
  *
  * Mounts a <fetchit-review> web component (shadow DOM, themeable via CSS custom
- * properties) that takes AI-generated text, runs @fetchit/engine locally, shows
+ * properties) that takes AI-generated text, runs @fetchitai/engine locally, shows
  * the cleaned text with color-coded highlights, lets the end user accept/reject
  * each class of auto-fix and edit the text by hand, then hands the final text
  * back through onApply(finalText, receipt). No network; the text never leaves
  * the page.
  *
  * Usage:
- *   import { attachReview } from "@fetchit/review";
+ *   import { attachReview } from "@fetchitai/review";
  *   attachReview(document.querySelector("#compose"), {
  *     text: aiDraft,
  *     onApply: (finalText, receipt) => sendEmail(finalText),
  *   });
  */
-import { clean, applyEdits, findAiSpans, analyzeAiSignals } from "@fetchit/engine";
+import { clean, applyEdits, findAiSpans, analyzeAiSignals } from "@fetchitai/engine";
 
 const CATEGORY_LABEL = {
   invisible: "Hidden characters",

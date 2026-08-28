@@ -1,4 +1,4 @@
-// Type declarations for @fetchit/engine. Offsets are code points unless a
+// Type declarations for @fetchitai/engine. Offsets are code points unless a
 // result has been passed through toUtf16Offsets().
 
 export const ENGINE_VERSION: string;

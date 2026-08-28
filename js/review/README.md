@@ -1,12 +1,12 @@
-# @fetchit/review
+# @fetchitai/review
 
 A drop-in "review before you send" panel. Mount it beside any text box and the
 reader sees the cleaned text with color-coded highlights, accepts or rejects each
 change, edits by hand, then hands the final text back to your app. Runs
-`@fetchit/engine` locally, so the text never leaves the page.
+`@fetchitai/engine` locally, so the text never leaves the page.
 
 ```js
-import { attachReview } from "@fetchit/review";
+import { attachReview } from "@fetchitai/review";
 
 attachReview(document.querySelector("#compose"), {
   text: aiDraft,

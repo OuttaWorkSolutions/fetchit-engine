@@ -4,7 +4,7 @@ Runs every parity vector through the Python engine and asserts the structural
 invariants that must hold regardless of language:
   - accepting every edit reproduces cleaned.text
   - edit and flag offsets are code points that slice the original text
-  - summary counts agree with the edit list
+  - the summary accounts for every character actually removed
 
 Cross-language equality (Python === JS) is checked by
 packages/js/test/parity.mjs, which runs these same vectors through both.
@@ -46,15 +46,28 @@ def run():
                 print("FAIL flag offset  [%s] %s" % (v["name"], f["id"]))
                 break
 
+        # Measure against the input and the output, NOT against the edit list.
+        # This check used to re-implement the engine's own attribution, so it
+        # agreed with it even when both were wrong: " <ZWSP> " reported
+        # hidden: 0 because space.collapse swallowed the span. Comparing what
+        # actually disappeared is independent of which rule fired.
         s = r["summary"]
-        inv = sum(1 for e in r["edits"] if e["category"] == "invisible")
-        odd = sum(1 for e in r["edits"] if e["ruleId"] == "space.lookalike")
+        text_in, text_out = v["input"], r["cleaned"]["text"]
+        count = lambda t, pred: sum(1 for ch in t if pred(ord(ch)))
+        inv = count(text_in, lambda cp: fe.core._invisible_rule(cp) is not None) - count(
+            text_out, lambda cp: fe.core._invisible_rule(cp) is not None
+        )
+        odd = count(text_in, fe.core._is_odd_space) - count(text_out, fe.core._is_odd_space)
         dsh = sum(1 for e in r["edits"] if e["ruleId"] == "dash.spaced")
         if (s["invisible"], s["oddSpaces"], s["dashes"], s["hidden"], s["flagged"]) != (
             inv, odd, dsh, inv + odd, len(r["flags"])
         ):
             failures += 1
-            print("FAIL summary counts  [%s]" % v["name"])
+            print(
+                "FAIL summary counts  [%s] reported inv=%s odd=%s hidden=%s, "
+                "actually removed inv=%s odd=%s hidden=%s"
+                % (v["name"], s["invisible"], s["oddSpaces"], s["hidden"], inv, odd, inv + odd)
+            )
 
     print("")
     if failures:

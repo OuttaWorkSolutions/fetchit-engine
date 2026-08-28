@@ -9,7 +9,7 @@ commonly reads as AI written.
 key for the core, and no model. The engine is a set of pure functions.
 
 ```js
-import { clean, applyEdits } from "@fetchit/engine";
+import { clean, applyEdits } from "@fetchitai/engine";
 
 const result = clean(aiDraft);
 // result.edits     deterministic fixes, safe to apply unattended
@@ -30,7 +30,7 @@ audit_log.write(r.to_json())       # machine-readable receipt of every change
 ## Install
 
 ```bash
-npm install @fetchit/engine
+npm install @fetchitai/engine
 pip install fetchit-engine
 ```
 
@@ -41,8 +41,8 @@ The optional Python spellcheck extra: `pip install "fetchit-engine[spell]"`.
 | Path | What it is |
 | --- | --- |
 | `engine-core/` | The single source of truth: `ruleset.json` and the `vectors.json` parity contract |
-| `js/` | `@fetchit/engine` (npm). ESM, zero dependencies, TypeScript types |
-| `js/review/` | `@fetchit/review`, a drop-in browser review panel |
+| `js/` | `@fetchitai/engine` (npm). ESM, zero dependencies, TypeScript types |
+| `js/review/` | `@fetchitai/review`, a drop-in browser review panel |
 | `py/` | `fetchit-engine` (pip). Pure standard library |
 
 ## The design, in four claims

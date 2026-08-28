@@ -15,7 +15,7 @@ import json
 import os
 import re
 
-ENGINE_VERSION = "0.1.0"
+ENGINE_VERSION = "0.1.1"
 
 # --- ruleset (single source of truth, shared with the JS package) -----------
 _RULESET_PATH = os.path.join(
@@ -471,8 +471,20 @@ def clean(text, options=None):
 
     report = analyze_ai_signals(text)
 
-    invisible_n = sum(1 for e in edits if e["category"] == "invisible")
-    oddspace_n = sum(1 for e in edits if e["ruleId"] == "space.lookalike")
+    # Count the characters an edit actually CONSUMED, not the rule that fired.
+    #
+    # Attributing by ruleId undercounts: a broader rule can swallow a span that
+    # contained invisible characters. " <ZWSP> " is collapsed by space.collapse,
+    # which removed the zero-width space while reporting hidden: 0. Since no
+    # replacement ever contains an invisible or look-alike character, counting
+    # them in `original` is exact regardless of which rule did the removing.
+    def _count_consumed(pred):
+        return sum(
+            1 for e in edits for ch in e["original"] if pred(ord(ch))
+        )
+
+    invisible_n = _count_consumed(lambda cp: _invisible_rule(cp) is not None)
+    oddspace_n = _count_consumed(_is_odd_space)
     dashes_n = sum(1 for e in edits if e["ruleId"] == "dash.spaced")
 
     return {

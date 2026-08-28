@@ -13,7 +13,7 @@ if r["aiReport"].get("level") == "high":
 ```
 
 Offsets are code points. See the [repository README](https://github.com/OuttaWorkSolutions/fetchit-engine#the-design-in-four-claims)
-for the full CleanResult contract, shared 1:1 with @fetchit/engine (JavaScript).
+for the full CleanResult contract, shared 1:1 with @fetchitai/engine (JavaScript).
 
 
 ## License

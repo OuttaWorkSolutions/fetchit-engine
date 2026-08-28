@@ -1,5 +1,5 @@
 /*
- * @fetchit/engine - deterministic text cleanup and AI-writing heuristics.
+ * @fetchitai/engine - deterministic text cleanup and AI-writing heuristics.
  *
  * Emits the language-neutral CleanResult contract shared with fetchit-engine
  * (Python). Ported in lockstep; packages/engine-core/vectors.json is the
@@ -13,7 +13,7 @@
  */
 import ruleset from "./ruleset.data.js";
 
-export const ENGINE_VERSION = "0.1.0";
+export const ENGINE_VERSION = "0.1.1";
 export const RULESET_VERSION = ruleset.rulesetVersion;
 
 const PHRASES = ruleset.phrases;
@@ -504,8 +504,22 @@ export function clean(text, options = {}) {
   }
 
   const report = analyzeAiSignals(text);
-  const invisibleN = edits.filter((e) => e.category === "invisible").length;
-  const oddSpaceN = edits.filter((e) => e.ruleId === "space.lookalike").length;
+  // Count the characters an edit actually CONSUMED, not the rule that fired.
+  //
+  // Attributing by ruleId undercounts: a broader rule can swallow a span that
+  // contained invisible characters. " <ZWSP> " is collapsed by space.collapse,
+  // which removed the zero-width space while reporting hidden: 0. Since no
+  // replacement ever contains an invisible or look-alike character, counting
+  // them in `original` is exact regardless of which rule did the removing.
+  const countConsumed = (pred) => {
+    let n = 0;
+    for (const e of edits) {
+      for (const ch of e.original) if (pred(ch.codePointAt(0))) n += 1;
+    }
+    return n;
+  };
+  const invisibleN = countConsumed((cp) => invisibleRule(cp) !== null);
+  const oddSpaceN = countConsumed(isOddSpace);
   const dashesN = edits.filter((e) => e.ruleId === "dash.spaced").length;
   const cpLen = Array.from(text).length;
 

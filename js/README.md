@@ -1,10 +1,10 @@
-# @fetchit/engine
+# @fetchitai/engine
 
 Deterministic text cleanup and AI-writing heuristics that run entirely in your
 process. Your users text never leaves it.
 
 ```js
-import { clean, applyEdits, toUtf16Offsets } from "@fetchit/engine";
+import { clean, applyEdits, toUtf16Offsets } from "@fetchitai/engine";
 
 const result = clean(aiDraft);
 // result.edits    auto-safe fixes (invisible chars, look-alike spaces, dashes)

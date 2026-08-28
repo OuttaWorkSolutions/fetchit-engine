@@ -1,5 +1,5 @@
 {
-  "note": "Parity contract for fetchit-engine (Python) and @fetchit/engine (JS). Each vector's CleanResult must be identical across both engines. Run: node packages/js/test/parity.mjs",
+  "note": "Parity contract for fetchit-engine (Python) and @fetchitai/engine (JS). Each vector's CleanResult must be identical across both engines. Run: node packages/js/test/parity.mjs",
   "vectors": [
     {
       "name": "empty",
@@ -15,51 +15,51 @@
     },
     {
       "name": "zwsp-and-em-dash",
-      "input": "AI helped\u200b write this \u2014 now clean it."
+      "input": "AI helped​ write this — now clean it."
     },
     {
       "name": "collapse-elsewhere-when-dash-present",
-      "input": "a  b \u2014 c"
+      "input": "a  b — c"
     },
     {
       "name": "nbsp-and-spaced-en-dash",
-      "input": "Nonbreaking\u00a0space and en \u2013 dash here."
+      "input": "Nonbreaking space and en – dash here."
     },
     {
       "name": "bare-en-dash-preserved",
-      "input": "page range 3\u20135 stays intact"
+      "input": "page range 3–5 stays intact"
     },
     {
       "name": "horizontal-bar",
-      "input": "quote \u2015 attribution here"
+      "input": "quote ― attribution here"
     },
     {
       "name": "space-before-punct-after-dash",
-      "input": "a word \u2014 , and punctuation"
+      "input": "a word — , and punctuation"
     },
     {
       "name": "soft-hyphen",
-      "input": "sof\u00adt hyphen inside a word"
+      "input": "sof­t hyphen inside a word"
     },
     {
       "name": "bidi-controls",
-      "input": "text \u202ereversed\u202c back"
+      "input": "text ‮reversed‬ back"
     },
     {
       "name": "bom-and-word-joiner",
-      "input": "\ufeffstart\u2060joined end"
+      "input": "﻿start⁠joined end"
     },
     {
       "name": "astral-tag-block-invisible",
-      "input": "hidden\udb40\udc41tag data"
+      "input": "hidden󠁁tag data"
     },
     {
       "name": "emoji-then-phrase-offset",
-      "input": "\ud83d\ude00 delve into it"
+      "input": "😀 delve into it"
     },
     {
       "name": "astral-between-phrase-and-dash",
-      "input": "rich tapestry \ud83c\udf00 spans \u2014 seamlessly"
+      "input": "rich tapestry 🌀 spans — seamlessly"
     },
     {
       "name": "overlapping-phrase-longest-wins",
@@ -75,31 +75,31 @@
     },
     {
       "name": "turkish-dotted-I-no-length-drift",
-      "input": "\u0130STANBUL delve DEL\u0130GHT tapestry"
+      "input": "İSTANBUL delve DELİGHT tapestry"
     },
     {
       "name": "uppercase-sharp-s-no-drift",
-      "input": "GRO\u1e9eE delve seamlessly here"
+      "input": "GROẞE delve seamlessly here"
     },
     {
       "name": "fullwidth-not-matched",
-      "input": "\uff24\uff25\uff2c\uff36\uff25 delve real"
+      "input": "ＤＥＬＶＥ delve real"
     },
     {
       "name": "many-invisibles-run",
-      "input": "x\u200b\u200c\u200dy end"
+      "input": "x​‌‍y end"
     },
     {
       "name": "consecutive-odd-spaces-with-dash",
-      "input": "a  b \u2014 c"
+      "input": "a  b — c"
     },
     {
       "name": "ai-heavy-multi-signal",
-      "input": "It is important to note that this framework plays a crucial role. Firstly, it delivers value. Secondly, it scales. Moreover, it adapts to a wide range of needs \u2014 seamlessly and meticulously. The system is fast, clear, and robust. Teams find it clear, concise, and compelling. In conclusion, this is a testament to modern design that we should underscore."
+      "input": "It is important to note that this framework plays a crucial role. Firstly, it delivers value. Secondly, it scales. Moreover, it adapts to a wide range of needs — seamlessly and meticulously. The system is fast, clear, and robust. Teams find it clear, concise, and compelling. In conclusion, this is a testament to modern design that we should underscore."
     },
     {
       "name": "option-disable-dash",
-      "input": "keep this \u2014 dash edit off",
+      "input": "keep this — dash edit off",
       "options": {
         "rules": {
           "disable": [
@@ -121,7 +121,7 @@
     },
     {
       "name": "option-disable-invisible",
-      "input": "drop\u200b nothing here",
+      "input": "drop​ nothing here",
       "options": {
         "rules": {
           "disable": [
@@ -129,6 +129,22 @@
           ]
         }
       }
+    },
+    {
+      "name": "invisible-swallowed-by-collapse",
+      "input": "options ​ together — truly."
+    },
+    {
+      "name": "invisible-run-between-spaces",
+      "input": "a ​​​ b"
+    },
+    {
+      "name": "oddspace-swallowed-by-collapse",
+      "input": "a   b"
+    },
+    {
+      "name": "mixed-invisible-and-oddspace",
+      "input": "x ​  y — z"
     }
   ]
 }
