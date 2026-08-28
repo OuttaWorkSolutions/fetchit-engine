@@ -28,7 +28,7 @@ const pick = (arr) => arr[Math.floor(rand() * arr.length)];
 // stress alphabet: everything the engine reasons about
 const CHARS = [
   "a", "b", "c", "z", "I", "A", "Q", " ", "  ", "\t", ",", ".", ";", ":", "!", "?",
-  "\n", "'", "-",
+  "\n", "'", "-", "0", "5", "9", "(", ")", "[", "]", "\"",
   "—", "–", "―",                     // dashes
   "​", "‌", "‍", "‎", "‏", // zero-width / bidi marks
   "‪", "‮", "⁠", "⁤", "﻿", "­", "᠎", // invisibles

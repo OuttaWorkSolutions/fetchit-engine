@@ -15,7 +15,7 @@ import json
 import os
 import re
 
-ENGINE_VERSION = "0.1.2"
+ENGINE_VERSION = "0.2.0"
 
 # --- ruleset (single source of truth, shared with the JS package) -----------
 _RULESET_PATH = os.path.join(
@@ -43,10 +43,12 @@ _LEVEL_MODERATE = _T["levelModerate"]
 _LEVEL_HIGH = _T["levelHigh"]
 
 # --- regexes that are logic, not data (kept in code; may contain dashes) -----
-# Em dash (U+2014) / horizontal bar (U+2015) in any spacing; en dash (U+2013)
-# only when spaced on both sides. Only spaces/tabs are consumed so line breaks
-# survive. Mirrors _EM_DASH in text_tools.py.
-_EM_DASH = re.compile(r"[ \t]*[—―][ \t]*|[ \t]+–[ \t]+")
+# A RUN of em dashes (U+2014) / horizontal bars (U+2015), optionally
+# space-separated, is one match, so "a——b" produces one comma, not two edits;
+# an en dash (U+2013) matches only when spaced on both sides, so numeric
+# ranges like 3–5 survive. Only spaces/tabs are consumed so line breaks
+# survive. Mirrors EM_DASH_RE in the JS engine.
+_EM_DASH = re.compile(r"[ \t]*[—―](?:[ \t]*[—―])*[ \t]*|[ \t]+–[ \t]+")
 _MULTI_SPACE = re.compile(r"[ \t]{2,}")
 _SPACE_BEFORE_PUNCT = re.compile(r"[ \t]+([,.;:!?])")
 
@@ -85,9 +87,53 @@ def _split_ws(s):
     return [w for w in re.split(r"[ \t\n\r\f\v]+", s) if w]
 
 # Rule metadata for edits produced by the dash/space normalization passes.
-_DASH_RULE = ("dash.spaced", "dash", "Replaced a spaced dash with a space")
+_DASH_RULE_ID = "dash.spaced"
+_DASH_COMMA_RULE = (_DASH_RULE_ID, "dash", "Replaced a dash with a comma")
+_DASH_SPACE_RULE = (_DASH_RULE_ID, "dash", "Replaced a spaced dash with a space")
+
+
+def _dash_rule_for(rep):
+    return _DASH_COMMA_RULE if rep[:1] == "," else _DASH_SPACE_RULE
+
+
 _COLLAPSE_RULE = ("space.collapse", "space", "Collapsed repeated spaces")
 _SPACE_BEFORE_RULE = ("punct.space-before", "space", "Removed a space before punctuation")
+
+# What a matched dash run becomes. A clause dash reads as a pause, so the
+# default replacement is a comma. The comma is withheld (single space instead,
+# the old behavior, tidied by the collapse and space-before-punct passes) when
+# a comma cannot sit there: at a text or line boundary, next to punctuation or
+# a bracket it would double up against, next to a dash the match could not
+# consume, or between digits, where the dash is a range rather than a pause.
+# When the next character is whitespace the comma takes no trailing space, so
+# it hugs the word before a line break. Mirrors dashReplacement in the JS
+# engine.
+_DASH_CP = frozenset((0x2014, 0x2015, 0x2013))
+_NO_COMMA_BEFORE = frozenset(ord(c) for c in ",.;:!?([{")
+_NO_COMMA_AFTER = frozenset(ord(c) for c in ",.;:!?)]}")
+
+
+def _cp_before(s, i):
+    return ord(s[i - 1]) if i > 0 else -1
+
+
+def _cp_after(s, i):
+    return ord(s[i]) if i < len(s) else -1
+
+
+def _dash_replacement(before_cp, after_cp):
+    blocked_before = (before_cp < 0 or before_cp in _WS
+                      or before_cp in _NO_COMMA_BEFORE or before_cp in _DASH_CP)
+    blocked_after = after_cp < 0 or after_cp in _NO_COMMA_AFTER or after_cp in _DASH_CP
+    if blocked_before or blocked_after:
+        return " "
+    if 0x30 <= before_cp <= 0x39 and 0x30 <= after_cp <= 0x39:
+        return " "
+    return "," if after_cp in _WS else ", "
+
+
+def _dash_match_replacement(m):
+    return _dash_replacement(_cp_before(m.string, m.start()), _cp_after(m.string, m.end()))
 
 # Priority when several passes touch the same characters and their cells merge.
 # Higher wins the label. Dash beats space cleanup beats invisible.
@@ -181,14 +227,22 @@ def _regex_pass(cells, regex, replacement, rule):
         merged = cells[ci:cj]
         src0 = merged[0].src0
         src1 = merged[-1].src1
+        if callable(replacement):
+            rep = replacement(m)
+        elif "\\" in replacement:
+            rep = m.expand(replacement)
+        else:
+            rep = replacement
+        # `rule` may depend on the replacement chosen (the dash pass labels
+        # comma and space outcomes differently while keeping one ruleId).
+        base = rule(rep) if callable(rule) else rule
         # if any merged cell already carried a higher-priority rule, keep it
-        best = rule
-        best_pri = _RULE_PRIORITY.get(rule[0], 0)
+        best = base
+        best_pri = _RULE_PRIORITY.get(base[0], 0)
         for c in merged:
             if c.rule and _RULE_PRIORITY.get(c.rule[0], 0) > best_pri:
                 best = c.rule
                 best_pri = _RULE_PRIORITY.get(c.rule[0], 0)
-        rep = m.expand(replacement) if "\\" in replacement else replacement
         out.append(_Cell(rep, src0, src1, best))
         last = cj
         changed = True
@@ -247,17 +301,17 @@ def _clean_cells(text, disabled=frozenset()):
     cells = _build_cells(text, disabled)
     current = "".join(c.text for c in cells)
     # Run the dash/space passes to a FIXED POINT, not once. A single pass is
-    # not idempotent: removing an em dash can manufacture the spacing that arms
-    # the spaced-en-dash rule ("X—– Y" -> "X – Y", and only a second clean
-    # reached "X Y"), which broke the documented clean(clean(x)) == clean(x)
-    # contract. Each enabled dash pass strictly reduces the dash count, so this
-    # terminates; the equality check breaks when the dash rule is disabled.
-    # Mirrors cleanCells() in the JS engine exactly.
+    # not idempotent: replacing an em dash can manufacture the spacing that
+    # arms the spaced-en-dash rule ("X—– Y" -> "X – Y", and only the next
+    # iteration reaches "X, Y"), which would break the documented
+    # clean(clean(x)) == clean(x) contract. Each enabled dash pass strictly
+    # reduces the dash count, so this terminates; the equality check breaks
+    # when the dash rule is disabled. Mirrors cleanCells() in the JS engine.
     for _guard in range(8):
         if not _EM_DASH.search(current):
             break
-        if _DASH_RULE[0] not in disabled:
-            cells, _ = _regex_pass(cells, _EM_DASH, " ", _DASH_RULE)
+        if _DASH_RULE_ID not in disabled:
+            cells, _ = _regex_pass(cells, _EM_DASH, _dash_match_replacement, _dash_rule_for)
         if _COLLAPSE_RULE[0] not in disabled:
             cells, _ = _regex_pass(cells, _MULTI_SPACE, " ", _COLLAPSE_RULE)
         if _SPACE_BEFORE_RULE[0] not in disabled:
@@ -281,12 +335,12 @@ def rebuild_text(text):
 
 
 def remove_em_dashes(text):
-    """Replace spaced dashes with a single space. Returns (new_text, count).
-    Back-compatible with text_tools.remove_em_dashes."""
+    """Replace clause dashes with a comma where one fits, else a space.
+    Returns (new_text, count); count is the number of matched dash groups."""
     count = len(_EM_DASH.findall(text))
     if not count:
         return text, 0
-    new = _EM_DASH.sub(" ", text)
+    new = _EM_DASH.sub(_dash_match_replacement, text)
     new = _MULTI_SPACE.sub(" ", new)
     new = _SPACE_BEFORE_PUNCT.sub(r"\1", new)
     return new, count

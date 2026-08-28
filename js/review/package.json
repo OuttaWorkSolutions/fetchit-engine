@@ -1,6 +1,6 @@
 {
   "name": "@fetchitai/review",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Drop-in review panel: clean AI text, color-code what changed, let the reader accept/reject/edit, and hand back the final copy. Runs entirely in the browser.",
   "type": "module",
   "main": "./review.js",

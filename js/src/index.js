@@ -13,7 +13,7 @@
  */
 import ruleset from "./ruleset.data.js";
 
-export const ENGINE_VERSION = "0.1.2";
+export const ENGINE_VERSION = "0.2.0";
 export const RULESET_VERSION = ruleset.rulesetVersion;
 
 const PHRASES = ruleset.phrases;
@@ -27,8 +27,12 @@ export const MIN_WORDS = ruleset.thresholds.MIN_WORDS;
 const LEVEL_MODERATE = ruleset.thresholds.levelModerate;
 const LEVEL_HIGH = ruleset.thresholds.levelHigh;
 
-// Regexes that are logic, not data (mirror text_tools.py; may contain dashes).
-const EM_DASH_RE = /[ \t]*[—―][ \t]*|[ \t]+–[ \t]+/g;
+// Regexes that are logic, not data (mirror core.py; may contain dashes).
+// A RUN of em dashes / horizontal bars (optionally space-separated) is one
+// match, so "a——b" produces one comma, not two edits; an en dash matches only
+// when spaced on both sides, so numeric ranges like 3–5 survive. Only spaces
+// and tabs are consumed, so line breaks survive.
+const EM_DASH_RE = /[ \t]*[—―](?:[ \t]*[—―])*[ \t]*|[ \t]+–[ \t]+/g;
 const MULTI_SPACE_RE = /[ \t]{2,}/g;
 const SPACE_BEFORE_PUNCT_RE = /[ \t]+([,.;:!?])/g;
 // Whitespace classes are written out as ASCII [ \t\n\r\f\v] rather than \s so
@@ -62,9 +66,50 @@ function codePointLength(s) {
   return n;
 }
 
-const DASH_RULE = ["dash.spaced", "dash", "Replaced a spaced dash with a space"];
+const DASH_RULE_ID = "dash.spaced";
+const DASH_COMMA_RULE = [DASH_RULE_ID, "dash", "Replaced a dash with a comma"];
+const DASH_SPACE_RULE = [DASH_RULE_ID, "dash", "Replaced a spaced dash with a space"];
+const dashRuleFor = (rep) => (rep[0] === "," ? DASH_COMMA_RULE : DASH_SPACE_RULE);
 const COLLAPSE_RULE = ["space.collapse", "space", "Collapsed repeated spaces"];
 const SPACE_BEFORE_RULE = ["punct.space-before", "space", "Removed a space before punctuation"];
+
+// What a matched dash run becomes. A clause dash reads as a pause, so the
+// default replacement is a comma. The comma is withheld (single space instead,
+// the old behavior, tidied by the collapse and space-before-punct passes) when
+// a comma cannot sit there: at a text or line boundary, next to punctuation or
+// a bracket it would double up against, next to a dash the match could not
+// consume, or between digits, where the dash is a range rather than a pause.
+// When the next character is whitespace the comma takes no trailing space, so
+// it hugs the word before a line break. Mirrors _dash_replacement in core.py.
+const DASH_CP = new Set([0x2014, 0x2015, 0x2013]);
+const NO_COMMA_BEFORE = new Set(Array.from(",.;:!?([{", (c) => c.codePointAt(0)));
+const NO_COMMA_AFTER = new Set(Array.from(",.;:!?)]}", (c) => c.codePointAt(0)));
+function dashReplacement(beforeCp, afterCp) {
+  const blockedBefore =
+    beforeCp < 0 || WS.has(beforeCp) || NO_COMMA_BEFORE.has(beforeCp) || DASH_CP.has(beforeCp);
+  const blockedAfter = afterCp < 0 || NO_COMMA_AFTER.has(afterCp) || DASH_CP.has(afterCp);
+  if (blockedBefore || blockedAfter) return " ";
+  if (beforeCp >= 0x30 && beforeCp <= 0x39 && afterCp >= 0x30 && afterCp <= 0x39) return " ";
+  return WS.has(afterCp) ? "," : ", ";
+}
+
+// True code point just before / after UTF-16 index i, or -1 at a boundary.
+// Python indexes by code point so ord() is enough there; here the char before
+// can be the low half of a surrogate pair and must be decoded from its start.
+function cpBefore(s, i) {
+  if (i <= 0) return -1;
+  const u = s.charCodeAt(i - 1);
+  if (u >= 0xdc00 && u <= 0xdfff && i >= 2) {
+    const hi = s.charCodeAt(i - 2);
+    if (hi >= 0xd800 && hi <= 0xdbff) return s.codePointAt(i - 2);
+  }
+  return u;
+}
+function cpAfter(s, i) {
+  return i < s.length ? s.codePointAt(i) : -1;
+}
+const dashMatchReplacement = (m) =>
+  dashReplacement(cpBefore(m.input, m.index), cpAfter(m.input, m.index + m[0].length));
 
 const RULE_PRIORITY = {
   "dash.spaced": 40,
@@ -162,15 +207,18 @@ function regexPass(cells, regex, replacementFn, rule) {
     const merged = cells.slice(ci, cj);
     const src0 = merged[0].src0;
     const src1 = merged[merged.length - 1].src1;
-    let best = rule;
-    let bestPri = RULE_PRIORITY[rule[0]] || 0;
+    const rep = replacementFn(m);
+    // `rule` may depend on the replacement chosen (the dash pass labels comma
+    // and space outcomes differently while keeping one ruleId).
+    let best = typeof rule === "function" ? rule(rep) : rule;
+    let bestPri = RULE_PRIORITY[best[0]] || 0;
     for (const c of merged) {
       if (c.rule && (RULE_PRIORITY[c.rule[0]] || 0) > bestPri) {
         best = c.rule;
         bestPri = RULE_PRIORITY[c.rule[0]] || 0;
       }
     }
-    out.push(new Cell(replacementFn(m), src0, src1, best));
+    out.push(new Cell(rep, src0, src1, best));
     last = cj;
     if (m[0].length === 0) regex.lastIndex++; // guard against zero-width loops
   }
@@ -201,16 +249,16 @@ function cleanCells(text, disabled) {
   let cells = buildCells(cps, disabled);
   let current = cells.map((c) => c.text).join("");
   // Run the dash/space passes to a FIXED POINT, not once. A single pass is not
-  // idempotent: removing an em dash can manufacture the spacing that arms the
-  // spaced-en-dash rule ("X—– Y" -> "X – Y", and only a second clean reached
-  // "X Y"), which broke the documented clean(clean(x)) === clean(x) contract.
-  // Each enabled dash pass strictly reduces the dash count, so this terminates;
-  // the equality check breaks the loop when the dash rule is disabled. The
-  // guard is a belt for both.
+  // idempotent: replacing an em dash can manufacture the spacing that arms the
+  // spaced-en-dash rule ("X—– Y" -> "X – Y", and only the next iteration
+  // reaches "X, Y"), which would break the documented clean(clean(x)) ===
+  // clean(x) contract. Each enabled dash pass strictly reduces the dash count,
+  // so this terminates; the equality check breaks the loop when the dash rule
+  // is disabled. The guard is a belt for both.
   for (let guard = 0; guard < 8; guard++) {
     EM_DASH_RE.lastIndex = 0;
     if (!EM_DASH_RE.test(current)) break;
-    if (!disabled.has(DASH_RULE[0])) cells = regexPass(cells, EM_DASH_RE, () => " ", DASH_RULE);
+    if (!disabled.has(DASH_RULE_ID)) cells = regexPass(cells, EM_DASH_RE, dashMatchReplacement, dashRuleFor);
     if (!disabled.has(COLLAPSE_RULE[0])) cells = regexPass(cells, MULTI_SPACE_RE, () => " ", COLLAPSE_RULE);
     if (!disabled.has(SPACE_BEFORE_RULE[0])) cells = regexPass(cells, SPACE_BEFORE_PUNCT_RE, (m) => m[1], SPACE_BEFORE_RULE);
     const next = cells.map((c) => c.text).join("");
@@ -260,7 +308,8 @@ export function removeEmDashes(text) {
   const matches = text.match(EM_DASH_RE);
   const count = matches ? matches.length : 0;
   if (!count) return { text, count: 0 };
-  let out = text.replace(EM_DASH_RE, " ");
+  let out = text.replace(EM_DASH_RE, (m, offset, s) =>
+    dashReplacement(cpBefore(s, offset), cpAfter(s, offset + m.length)));
   out = out.replace(MULTI_SPACE_RE, " ");
   out = out.replace(SPACE_BEFORE_PUNCT_RE, "$1");
   return { text: out, count };

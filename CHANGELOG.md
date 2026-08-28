@@ -14,6 +14,39 @@ Two things are versioned here, and they move independently:
 
 Nothing yet.
 
+## 0.2.0 - ruleset 2026-08-18
+
+**Changed: clause dashes are now replaced with a comma, not a space.** The
+`dash.spaced` rule (em dashes and horizontal bars in any spacing, en dashes
+when spaced on both sides) replaces the matched dash run with `", "`, which is
+how a human editor usually rewrites an em dash: `"The results—which
+surprised everyone—came late."` cleans to
+`"The results, which surprised everyone, came late."`. The comma is withheld,
+falling back to the old single space, wherever a comma cannot sit: at a text
+or line boundary, next to punctuation or a bracket it would double up against,
+next to a dash the match could not consume, or between digits, where the dash
+is a range rather than a pause (`"pages 12—14"` still cleans to
+`"pages 12 14"`, and unspaced en dash ranges like `2019–2024` remain
+untouched). Before a line break the comma hugs the word (`"line one—\nline
+two"` cleans to `"line one,\nline two"`). Edit messages distinguish the two
+outcomes ("Replaced a dash with a comma" / "Replaced a spaced dash with a
+space"); the rule id is unchanged, so existing `rules.disable` lists keep
+working.
+
+**Changed: a run of em dashes is one match.** `"wait——what"` produces one edit
+and one comma instead of two space edits. `removeEmDashes()` /
+`remove_em_dashes()` count matched dash groups, apply the same comma logic,
+and keep their `(text, count)` shape.
+
+Idempotency, byte parity, and the measured summary counts all hold: verified
+over the 45 parity vectors and 24,000 fuzz cases across six seeds in both
+languages, with digits, brackets, and quotes added to the fuzz alphabet to
+exercise the new context decisions. Eleven vectors cover the comma behavior,
+including astral-plane characters adjacent to a dash (a UTF-16 surrogate trap
+the JS side now decodes explicitly).
+
+**`@fetchitai/review` 0.2.0:** no changes; version moves in lockstep.
+
 ## 0.1.2 - ruleset 2026-08-18
 
 **Fixed: `clean()` was not idempotent on dash chains.** The dash/space passes

@@ -71,6 +71,8 @@ export interface CleanOptions {
 export function clean(text: string, options?: CleanOptions): CleanResult;
 export function applyEdits(text: string, acceptedIds: string[], edits: Edit[]): string;
 export function rebuildText(text: string): { text: string; changed: number };
+/** Replace clause dashes with a comma where one fits, else a space.
+ *  `count` is the number of matched dash groups. */
 export function removeEmDashes(text: string): { text: string; count: number };
 export function findAiSpans(text: string): Array<[number, number]>;
 export function analyzeAiSignals(text: string): AiReport;

@@ -157,6 +157,50 @@
     {
       "name": "dash-chain-with-punct",
       "input": "a— – b , end."
+    },
+    {
+      "name": "em-dash-comma-basic",
+      "input": "The results—which surprised everyone—came late."
+    },
+    {
+      "name": "spaced-em-dash-comma",
+      "input": "one thing — another thing"
+    },
+    {
+      "name": "spaced-en-dash-comma",
+      "input": "planning – then doing"
+    },
+    {
+      "name": "em-dash-run-single-comma",
+      "input": "wait——what happened"
+    },
+    {
+      "name": "dash-before-punct-no-comma",
+      "input": "he stopped—, then spoke—."
+    },
+    {
+      "name": "dash-newline-comma-hugs-word",
+      "input": "first line—\nsecond line"
+    },
+    {
+      "name": "digit-range-dash-no-comma",
+      "input": "pages 12—14 and 2019–2024"
+    },
+    {
+      "name": "dash-at-text-edges",
+      "input": "—lead and trail—"
+    },
+    {
+      "name": "quote-adjacent-dash-comma",
+      "input": "she said \"go\"—then left"
+    },
+    {
+      "name": "astral-context-dash-comma",
+      "input": "emoji 😀—🌀 bridge"
+    },
+    {
+      "name": "paren-adjacent-dash-no-comma",
+      "input": "an aside (—inner—) here"
     }
   ]
 }

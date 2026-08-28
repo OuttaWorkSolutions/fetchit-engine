@@ -1,6 +1,6 @@
 {
   "name": "@fetchitai/engine",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Deterministic text cleanup and AI-writing heuristics. Runs entirely in your process; your users' text never leaves it.",
   "type": "module",
   "main": "./src/index.js",
