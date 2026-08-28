@@ -145,6 +145,18 @@
     {
       "name": "mixed-invisible-and-oddspace",
       "input": "x ​  y — z"
+    },
+    {
+      "name": "dash-chain-em-then-en",
+      "input": "X—– Y"
+    },
+    {
+      "name": "dash-chain-en-then-em",
+      "input": "a –— b"
+    },
+    {
+      "name": "dash-chain-with-punct",
+      "input": "a— – b , end."
     }
   ]
 }

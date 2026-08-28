@@ -14,6 +14,31 @@ Two things are versioned here, and they move independently:
 
 Nothing yet.
 
+## 0.1.2 - ruleset 2026-08-18
+
+**Fixed: `clean()` was not idempotent on dash chains.** The dash/space passes
+ran once, so removing an em dash could manufacture the spacing that arms the
+spaced-en-dash rule for the NEXT clean: `"X—– Y"` cleaned to `"X – Y"`, and only a
+second clean reached `"X Y"`. That broke the documented
+`clean(clean(x)) === clean(x)` contract that makes unattended pipeline use
+safe. The passes now run to a fixed point, so one clean finishes the job.
+Found by an empirical idempotency sweep during a full repo audit; 28 of 531
+generated cases failed before the fix, zero after (verified across 20,000
+fuzz cases on five seeds, in both languages).
+
+**Changed: `summary.dashes` counts removed dash characters**, consistent with
+the 0.1.1 rule that counts measure consumed characters rather than edit
+records. A merged chain edit that removed two dashes now reports 2.
+
+**`@fetchitai/review` 0.1.2:** the internal HTML escaper now escapes quotes as
+well. No interpolation reaches an attribute today, so this changes nothing
+observable; it exists so a future attribute interpolation cannot become an
+XSS.
+
+**Harness:** idempotency is now a standing invariant in the parity gate, the
+fuzzer, and the Python checks, alongside a dashes-removed check measured
+against input and output. Three dash-chain vectors added (34 total).
+
 ## 0.1.1 - ruleset 2026-08-18
 
 Patch release. Cleaning behaviour is unchanged; only the reported counts move.

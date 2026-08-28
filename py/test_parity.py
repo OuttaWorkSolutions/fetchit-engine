@@ -51,6 +51,12 @@ def run():
         # agreed with it even when both were wrong: " <ZWSP> " reported
         # hidden: 0 because space.collapse swallowed the span. Comparing what
         # actually disappeared is independent of which rule fired.
+        # Idempotency: cleaning cleaned text must change nothing.
+        r2 = fe.clean(r["cleaned"]["text"], options=v.get("options"))
+        if r2["cleaned"]["text"] != r["cleaned"]["text"]:
+            failures += 1
+            print("FAIL not idempotent  [%s]" % v["name"])
+
         s = r["summary"]
         text_in, text_out = v["input"], r["cleaned"]["text"]
         count = lambda t, pred: sum(1 for ch in t if pred(ord(ch)))
@@ -58,7 +64,8 @@ def run():
             text_out, lambda cp: fe.core._invisible_rule(cp) is not None
         )
         odd = count(text_in, fe.core._is_odd_space) - count(text_out, fe.core._is_odd_space)
-        dsh = sum(1 for e in r["edits"] if e["ruleId"] == "dash.spaced")
+        is_dash = lambda cp: cp in (0x2014, 0x2015, 0x2013)
+        dsh = count(text_in, is_dash) - count(text_out, is_dash)
         if (s["invisible"], s["oddSpaces"], s["dashes"], s["hidden"], s["flagged"]) != (
             inv, odd, dsh, inv + odd, len(r["flags"])
         ):

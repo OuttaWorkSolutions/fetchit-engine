@@ -13,7 +13,7 @@
  */
 import ruleset from "./ruleset.data.js";
 
-export const ENGINE_VERSION = "0.1.1";
+export const ENGINE_VERSION = "0.1.2";
 export const RULESET_VERSION = ruleset.rulesetVersion;
 
 const PHRASES = ruleset.phrases;
@@ -199,15 +199,25 @@ function buildCells(cps, disabled) {
 function cleanCells(text, disabled) {
   const cps = Array.from(text); // code-point array
   let cells = buildCells(cps, disabled);
-  const rebuilt = cells.map((c) => c.text).join("");
-  EM_DASH_RE.lastIndex = 0;
-  if (EM_DASH_RE.test(rebuilt)) {
+  let current = cells.map((c) => c.text).join("");
+  // Run the dash/space passes to a FIXED POINT, not once. A single pass is not
+  // idempotent: removing an em dash can manufacture the spacing that arms the
+  // spaced-en-dash rule ("X—– Y" -> "X – Y", and only a second clean reached
+  // "X Y"), which broke the documented clean(clean(x)) === clean(x) contract.
+  // Each enabled dash pass strictly reduces the dash count, so this terminates;
+  // the equality check breaks the loop when the dash rule is disabled. The
+  // guard is a belt for both.
+  for (let guard = 0; guard < 8; guard++) {
+    EM_DASH_RE.lastIndex = 0;
+    if (!EM_DASH_RE.test(current)) break;
     if (!disabled.has(DASH_RULE[0])) cells = regexPass(cells, EM_DASH_RE, () => " ", DASH_RULE);
     if (!disabled.has(COLLAPSE_RULE[0])) cells = regexPass(cells, MULTI_SPACE_RE, () => " ", COLLAPSE_RULE);
     if (!disabled.has(SPACE_BEFORE_RULE[0])) cells = regexPass(cells, SPACE_BEFORE_PUNCT_RE, (m) => m[1], SPACE_BEFORE_RULE);
+    const next = cells.map((c) => c.text).join("");
+    if (next === current) break;
+    current = next;
   }
-  const cleaned = cells.map((c) => c.text).join("");
-  return { cleaned, cells, cps };
+  return { cleaned: current, cells, cps };
 }
 
 function cellsToEdits(cells, cps) {
@@ -520,7 +530,10 @@ export function clean(text, options = {}) {
   };
   const invisibleN = countConsumed((cp) => invisibleRule(cp) !== null);
   const oddSpaceN = countConsumed(isOddSpace);
-  const dashesN = edits.filter((e) => e.ruleId === "dash.spaced").length;
+  // Dashes count by consumed CHARACTER too: with the fixed-point dash pass, a
+  // chain like "—– " merges into one edit that removed two dashes.
+  const isDashCp = (cp) => cp === 0x2014 || cp === 0x2015 || cp === 0x2013;
+  const dashesN = countConsumed(isDashCp);
   const cpLen = Array.from(text).length;
 
   return {

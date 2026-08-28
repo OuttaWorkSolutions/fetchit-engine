@@ -139,7 +139,9 @@ class FetchitReview extends HTMLElement {
     const spans = cpToUtf16Spans(text, findAiSpans(text));
     const phrases = [...new Set(spans.map(([s, e]) => text.slice(s, e)))];
 
-    const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    // Quotes included: no user string reaches an attribute today, but escaping
+    // them means a future attribute interpolation cannot become an XSS.
+    const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     let reviewHtml = "";
     if (!this._editing) {
       let cur = 0;

@@ -93,6 +93,15 @@ vectors.forEach((v, i) => {
     }
   }
 
+  // invariant: cleaning is idempotent, as the README promises. A single-pass
+  // pipeline broke this: removing an em dash could arm the spaced-en-dash rule
+  // for the NEXT clean ("X—– Y").
+  const again = clean(js.cleaned.text, v.options);
+  if (again.cleaned.text !== js.cleaned.text) {
+    failures++;
+    console.log(`FAIL not idempotent  [${v.name}] ${JSON.stringify(js.cleaned.text)} -> ${JSON.stringify(again.cleaned.text)}`);
+  }
+
   // invariant: the summary accounts for every character actually removed.
   //
   // This is measured against the input and the output rather than against the
@@ -124,6 +133,12 @@ vectors.forEach((v, i) => {
     console.log(
       `FAIL summary.oddSpaces  [${v.name}] reported ${js.summary.oddSpaces}, actually removed ${oddSpacesRemoved}`,
     );
+  }
+  const isDashCp = (cp) => cp === 0x2014 || cp === 0x2015 || cp === 0x2013;
+  const dashesRemoved = countIn(v.input, isDashCp) - countIn(js.cleaned.text, isDashCp);
+  if (js.summary.dashes !== dashesRemoved) {
+    failures++;
+    console.log(`FAIL summary.dashes  [${v.name}] reported ${js.summary.dashes}, actually removed ${dashesRemoved}`);
   }
   if (js.summary.hidden !== invisibleRemoved + oddSpacesRemoved) {
     failures++;

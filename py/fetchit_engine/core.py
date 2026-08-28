@@ -15,7 +15,7 @@ import json
 import os
 import re
 
-ENGINE_VERSION = "0.1.1"
+ENGINE_VERSION = "0.1.2"
 
 # --- ruleset (single source of truth, shared with the JS package) -----------
 _RULESET_PATH = os.path.join(
@@ -245,16 +245,28 @@ def _clean_cells(text, disabled=frozenset()):
     dash pass plus multi-space collapse and space-before-punct tidy. A disabled
     rule id skips its pass entirely, so cleaned text and the edit list agree."""
     cells = _build_cells(text, disabled)
-    rebuilt = "".join(c.text for c in cells)
-    if _EM_DASH.search(rebuilt):
+    current = "".join(c.text for c in cells)
+    # Run the dash/space passes to a FIXED POINT, not once. A single pass is
+    # not idempotent: removing an em dash can manufacture the spacing that arms
+    # the spaced-en-dash rule ("X—– Y" -> "X – Y", and only a second clean
+    # reached "X Y"), which broke the documented clean(clean(x)) == clean(x)
+    # contract. Each enabled dash pass strictly reduces the dash count, so this
+    # terminates; the equality check breaks when the dash rule is disabled.
+    # Mirrors cleanCells() in the JS engine exactly.
+    for _guard in range(8):
+        if not _EM_DASH.search(current):
+            break
         if _DASH_RULE[0] not in disabled:
             cells, _ = _regex_pass(cells, _EM_DASH, " ", _DASH_RULE)
         if _COLLAPSE_RULE[0] not in disabled:
             cells, _ = _regex_pass(cells, _MULTI_SPACE, " ", _COLLAPSE_RULE)
         if _SPACE_BEFORE_RULE[0] not in disabled:
             cells, _ = _regex_pass(cells, _SPACE_BEFORE_PUNCT, "\\1", _SPACE_BEFORE_RULE)
-    cleaned = "".join(c.text for c in cells)
-    return cleaned, cells
+        nxt = "".join(c.text for c in cells)
+        if nxt == current:
+            break
+        current = nxt
+    return current, cells
 
 
 # --- public building blocks --------------------------------------------------
@@ -485,7 +497,9 @@ def clean(text, options=None):
 
     invisible_n = _count_consumed(lambda cp: _invisible_rule(cp) is not None)
     oddspace_n = _count_consumed(_is_odd_space)
-    dashes_n = sum(1 for e in edits if e["ruleId"] == "dash.spaced")
+    # Dashes count by consumed CHARACTER too: with the fixed-point dash pass, a
+    # chain like "—– " merges into one edit that removed two dashes.
+    dashes_n = _count_consumed(lambda cp: cp in (0x2014, 0x2015, 0x2013))
 
     return {
         "engineVersion": ENGINE_VERSION,

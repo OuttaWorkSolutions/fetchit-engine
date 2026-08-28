@@ -72,6 +72,11 @@ function stable(x) {
 let failures = 0;
 for (let i = 0; i < items.length; i++) {
   const js = clean(items[i].input, items[i].options);
+  const again = clean(js.cleaned.text, items[i].options);
+  if (again.cleaned.text !== js.cleaned.text) {
+    failures++;
+    console.log(`FAIL not idempotent  [case ${i}] ${JSON.stringify(items[i].input).slice(0, 80)}`);
+  }
   if (stable(js) !== stable(py[i])) {
     failures++;
     if (failures <= 5) {
