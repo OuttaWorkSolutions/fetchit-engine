@@ -1,6 +1,6 @@
 {
   "name": "@fetchitai/review",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Drop-in review panel: clean AI text, color-code what changed, let the reader accept/reject/edit, and hand back the final copy. Runs entirely in the browser.",
   "type": "module",
   "main": "./review.js",
@@ -17,7 +17,7 @@
     "./review.js"
   ],
   "peerDependencies": {
-    "@fetchitai/engine": "^0.1.2"
+    "@fetchitai/engine": ">=0.1.2 <1.0.0"
   },
   "license": "Apache-2.0",
   "keywords": [

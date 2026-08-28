@@ -14,6 +14,17 @@ Two things are versioned here, and they move independently:
 
 Nothing yet.
 
+## @fetchitai/review 0.2.1
+
+**Fixed: the peer dependency range excluded the matching engine.** review
+0.2.0 shipped with peer `@fetchitai/engine: "^0.1.2"`, so installing it next
+to engine 0.2.0 failed with ERESOLVE for every user. The range is now
+`>=0.1.2 <1.0.0`, which accepts every 0.x engine, so a lockstep engine bump
+can no longer strand the widget. No code changes; do not use review 0.2.0.
+Caught by clean-install verification minutes after publish;
+`engine-core/check-published.mjs` now validates the peer range against the
+local engine version so this class of mistake is loud before publishing.
+
 ## 0.2.0 - ruleset 2026-08-18
 
 **Changed: clause dashes are now replaced with a comma, not a space.** The
