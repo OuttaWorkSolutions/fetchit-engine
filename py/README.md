@@ -15,11 +15,7 @@ if r["aiReport"].get("level") == "high":
 Offsets are code points. See the [repository README](https://github.com/OuttaWorkSolutions/fetchit-engine#the-design-in-four-claims)
 for the full CleanResult contract, shared 1:1 with @fetchit/engine (JavaScript).
 
-Free for noncommercial use under PolyForm Noncommercial 1.0.0.
-Commercial use requires a paid license: see COMMERCIAL.md.
 
 ## License
 
-Free for **noncommercial** use under the PolyForm Noncommercial License 1.0.0
-(see LICENSE). **Commercial use requires a paid license** ($49/year; enterprise
-per deal). See COMMERCIAL.md or https://fetchitai.com/developers.
+Apache-2.0. Free for everyone, including commercial use.

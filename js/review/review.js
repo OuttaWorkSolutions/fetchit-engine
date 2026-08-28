@@ -189,7 +189,7 @@ class FetchitReview extends HTMLElement {
           ${fixesHtml}
           <div class="sec">AI-sounding phrases</div>
           ${phrasesHtml}
-          <div class="foot">Powered by <a href="https://fetchitai.com" target="_blank" rel="noopener">Fetch It AI</a></div>
+          ${this.badge === false ? "" : `<div class="foot">Powered by <a href="https://fetchitai.com" target="_blank" rel="noopener">Fetch It AI</a></div>`}
         </div>
       </div>`;
 
@@ -231,6 +231,9 @@ export function attachReview(host, options = {}) {
   const el = document.createElement("fetchit-review");
   if (options.text != null) el.text = options.text;
   if (options.onApply) el.onApply = options.onApply;
+  // Attribution is on by default and off on request. Under Apache-2.0 a
+  // caller could delete the markup anyway, so gating it would be theatre.
+  if (options.badge === false) el.badge = false;
   host.appendChild(el);
   return el;
 }

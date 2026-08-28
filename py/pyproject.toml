@@ -8,13 +8,11 @@ version = "0.1.0"
 description = "Deterministic text cleanup and AI-writing heuristics. Runs entirely in your process; text never leaves it."
 readme = "README.md"
 requires-python = ">=3.8"
-# Free for noncommercial use (PolyForm Noncommercial 1.0.0); commercial use
-# requires a paid license. See LICENSE and COMMERCIAL.md.
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Outta Work Solutions" }]
 keywords = ["ai text", "cleanup", "invisible characters", "em dash", "text hygiene"]
 classifiers = [
-  "License :: Other/Proprietary License",
   "Programming Language :: Python :: 3",
   "Operating System :: OS Independent",
   "Topic :: Text Processing :: Linguistic",

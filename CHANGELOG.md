@@ -55,3 +55,12 @@ First public release.
 - `<fetchit-review>` web component, shadow DOM, themeable through `--fr-*` custom
   properties. Per category accept and reject with live rescoring, hand edit mode,
   and `onApply(finalText, receipt)`.
+- A small "Powered by Fetch It AI" badge is shown by default and hidden with
+  `badge: false`.
+
+**License**
+
+- Apache-2.0. Free for everyone, commercial use included. An earlier draft of
+  this project carried PolyForm Noncommercial to support a paid commercial tier;
+  that tier was dropped before any release, so the restriction went with it.
+  Nothing was ever published under the old terms.

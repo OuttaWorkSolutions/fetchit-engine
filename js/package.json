@@ -13,10 +13,11 @@
   "files": [
     "src",
     "LICENSE",
+    "NOTICE",
     "README.md"
   ],
   "sideEffects": false,
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "Apache-2.0",
   "keywords": [
     "ai text",
     "cleanup",

@@ -95,9 +95,5 @@ node engine-core/build.mjs
 
 ## License
 
-Free for noncommercial use under the **PolyForm Noncommercial License 1.0.0**
-(see `LICENSE`). Personal, non-commercial, open-source, and evaluation use are
-all free.
-
-**Commercial use requires a paid license.** See [COMMERCIAL.md](COMMERCIAL.md),
-visit <https://fetchitai.com/developers>, or email support@fetchitai.com.
+**Apache-2.0** (see `LICENSE`). Free for everyone, including commercial use,
+with no separate license to buy and nothing to sign.

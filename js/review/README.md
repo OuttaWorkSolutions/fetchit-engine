@@ -15,11 +15,9 @@ attachReview(document.querySelector("#compose"), {
 ```
 
 It renders a `<fetchit-review>` web component (shadow DOM, themeable via `--fr-*`
-CSS custom properties). The free version shows a small "Powered by Fetch It AI"
-badge; a commercial license removes it.
+CSS custom properties). It shows a small "Powered by Fetch It AI" badge,
+which is appreciated but entirely optional: pass `badge: false` to hide it.
 
 ## License
 
-Free for **noncommercial** use under the PolyForm Noncommercial License 1.0.0
-(see LICENSE). **Commercial use requires a paid license** ($49/year; enterprise
-per deal). See COMMERCIAL.md or https://fetchitai.com/developers.
+Apache-2.0. Free for everyone, including commercial use.
