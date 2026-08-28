@@ -1,0 +1,101 @@
+# Publishes the three packages via OIDC trusted publishing: no stored tokens,
+# no OTP. Registry-side setup lives in RELEASING.md. Every push runs the full
+# gate; a v* tag additionally publishes whatever version is not already live,
+# so re-running a tag (or tagging a partially published release) is safe.
+name: test-and-publish
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Regenerate ruleset copies and fail if the repo was out of sync
+        run: |
+          node engine-core/build.mjs
+          git diff --exit-code
+      - name: Parity (JS === Python, invariants)
+        run: node js/test/parity.mjs
+      - name: Fuzz
+        run: node js/test/fuzz.mjs 4000 12345
+      - name: Python invariants
+        run: python py/test_parity.py
+      - name: Spell core
+        run: python py/test_spell.py
+
+  publish-npm:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC for npm trusted publishing
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+      - name: npm with OIDC trusted-publishing support
+        run: npm install -g npm@latest
+      - name: Tag must match the lockstep version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          JS=$(node -p "require('./js/package.json').version")
+          PY=$(sed -n 's/^version = "\(.*\)"/\1/p' py/pyproject.toml)
+          test "$TAG" = "$JS" || { echo "tag v$TAG does not match engine $JS"; exit 1; }
+          test "$JS" = "$PY" || { echo "engine $JS does not match python $PY"; exit 1; }
+      - name: Publish @fetchitai/engine (skip if that version is live)
+        working-directory: js
+        run: |
+          V=$(node -p "require('./package.json').version")
+          if npm view "@fetchitai/engine@$V" version >/dev/null 2>&1; then
+            echo "engine $V already on the registry, skipping"
+          else
+            npm publish --access public
+          fi
+      - name: Publish @fetchitai/review (skip if that version is live)
+        working-directory: js/review
+        run: |
+          V=$(node -p "require('./package.json').version")
+          if npm view "@fetchitai/review@$V" version >/dev/null 2>&1; then
+            echo "review $V already on the registry, skipping"
+          else
+            npm publish --access public
+          fi
+
+  publish-pypi:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC for PyPI trusted publishing
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build py/
+      - name: Publish fetchit-engine (skip files already on PyPI)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: py/dist
+          skip-existing: true
