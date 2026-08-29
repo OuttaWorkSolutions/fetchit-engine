@@ -66,6 +66,15 @@ def run():
         odd = count(text_in, fe.core._is_odd_space) - count(text_out, fe.core._is_odd_space)
         is_dash = lambda cp: cp in (0x2014, 0x2015, 0x2013)
         dsh = count(text_in, is_dash) - count(text_out, is_dash)
+        # Measured the same way: what disappeared between input and output.
+        is_conf = lambda cp: cp in fe.core._CONFUSABLES
+        is_typo = lambda cp: cp in fe.core._TYPOGRAPHY
+        hom = count(text_in, is_conf) - count(text_out, is_conf)
+        typ = count(text_in, is_typo) - count(text_out, is_typo)
+        if (s["homoglyphs"], s["typography"]) != (hom, typ):
+            failures += 1
+            print("FAIL summary homoglyph/typography  [%s] reported %s/%s, actually %s/%s"
+                  % (v["name"], s["homoglyphs"], s["typography"], hom, typ))
         if (s["invisible"], s["oddSpaces"], s["dashes"], s["hidden"], s["flagged"]) != (
             inv, odd, dsh, inv + odd, len(r["flags"])
         ):

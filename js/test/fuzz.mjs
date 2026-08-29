@@ -33,6 +33,10 @@ const CHARS = [
   "​", "‌", "‍", "‎", "‏", // zero-width / bidi marks
   "‪", "‮", "⁠", "⁤", "﻿", "­", "᠎", // invisibles
   " ", " ", " ", " ", "　", // look-alike spaces
+  "а", "е", "о", "р", "с", "А", "О", "Р", "Ν", "Ο", // confusables (mixed-script trap)
+  "‘", "’", "“", "”", "…", "′", // smart punctuation
+  "Привет", "Москва",           // genuine Cyrillic words: must survive untouched
+  "**", "__", "## ", "[a](b)",  // markdown artifacts
   "İ", "ẞ", "Ｄ",                     // length-drift / fullwidth traps
   "😀", "🌀",                   // astral emoji
   "󠁁",                                   // astral tag-block invisible

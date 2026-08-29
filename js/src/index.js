@@ -13,7 +13,7 @@
  */
 import ruleset from "./ruleset.data.js";
 
-export const ENGINE_VERSION = "0.2.0";
+export const ENGINE_VERSION = "0.3.0";
 export const RULESET_VERSION = ruleset.rulesetVersion;
 
 const PHRASES = ruleset.phrases;
@@ -22,6 +22,14 @@ const INVISIBLE_RANGES = ruleset.invisibleRanges;
 const ODD_SPACE_RANGES = ruleset.oddSpaceRanges;
 const ODD_SPACE_RULE_ID = ruleset.oddSpaceRuleId;
 const ODD_SPACE_LABEL = ruleset.oddSpaceLabel;
+const CONFUSABLE_RULE_ID = ruleset.confusableRuleId;
+const CONFUSABLE_LABEL = ruleset.confusableLabel;
+const TYPOGRAPHY_RULE_ID = ruleset.typographyRuleId;
+const TYPOGRAPHY_LABEL = ruleset.typographyLabel;
+// code point -> replacement, built once from the shared tables so both
+// languages derive the same lookup from the same data.
+const CONFUSABLES = new Map(ruleset.confusables.map((c) => [c.cp, c.to]));
+const TYPOGRAPHY = new Map(ruleset.typography.map((c) => [c.cp, c.to]));
 export const MIN_CHARS = ruleset.thresholds.MIN_CHARS;
 export const MIN_WORDS = ruleset.thresholds.MIN_WORDS;
 const LEVEL_MODERATE = ruleset.thresholds.levelModerate;
@@ -40,8 +48,14 @@ const SPACE_BEFORE_PUNCT_RE = /[ \t]+([,.;:!?])/g;
 // spaces, which Python (ASCII) would not. \b and \d are already ASCII in JS.
 const RULE_OF_THREE_RE = /\b[A-Za-z]+,[ \t\n\r\f\v]+[A-Za-z]+,[ \t\n\r\f\v]+and[ \t\n\r\f\v]+[A-Za-z]+\b/gi;
 const LIST_MARKER_RE = /^[ \t\n\r\f\v]*(?:[-*•·]|\d+[.)])[ \t\n\r\f\v]+/gm;
-const CONTRACTION_RE = /\b[A-Za-z]+'(?:t|s|re|ve|ll|d|m)\b/gi;
-const WORD_RE = /[A-Za-z']+/g;
+// U+2019 is included deliberately. Word processors and AI assistants emit the
+// curly apostrophe, and matching only the straight one made this signal report
+// "almost no contractions" on prose that was full of them, inflating the score
+// by 10 points, while WORD_RE split "don’t" into two words.
+const CONTRACTION_RE = /\b[A-Za-z]+['’](?:t|s|re|ve|ll|d|m)\b/gi;
+const WORD_RE = /[A-Za-z'’]+/g;
+// Markdown that survived a paste out of a chat window into running prose.
+const MARKDOWN_RE = /\*\*[^*\n]+\*\*|__[^_\n]+__|^#{1,6}[ \t]|\[[^\]\n]+\]\([^)\n]+\)/gm;
 
 // One shared whitespace set for trimming, identical to Python _WS.
 const WS = new Set([
@@ -71,6 +85,8 @@ const DASH_COMMA_RULE = [DASH_RULE_ID, "dash", "Replaced a dash with a comma"];
 const DASH_SPACE_RULE = [DASH_RULE_ID, "dash", "Replaced a spaced dash with a space"];
 const dashRuleFor = (rep) => (rep[0] === "," ? DASH_COMMA_RULE : DASH_SPACE_RULE);
 const COLLAPSE_RULE = ["space.collapse", "space", "Collapsed repeated spaces"];
+const CONFUSABLE_RULE = [CONFUSABLE_RULE_ID, "homoglyph", "Replaced a " + CONFUSABLE_LABEL];
+const TYPOGRAPHY_RULE = [TYPOGRAPHY_RULE_ID, "typography", "Normalized a " + TYPOGRAPHY_LABEL];
 const SPACE_BEFORE_RULE = ["punct.space-before", "space", "Removed a space before punctuation"];
 
 // What a matched dash run becomes. A clause dash reads as a pause, so the
@@ -112,7 +128,9 @@ const dashMatchReplacement = (m) =>
   dashReplacement(cpBefore(m.input, m.index), cpAfter(m.input, m.index + m[0].length));
 
 const RULE_PRIORITY = {
+  "homoglyph.mixed-script": 45,
   "dash.spaced": 40,
+  "typography.smart": 35,
   "space.lookalike": 30,
   "space.collapse": 20,
   "punct.space-before": 15,
@@ -237,6 +255,8 @@ function buildCells(cps, disabled) {
       cells.push(new Cell("", i, i + 1, [inv.id, "invisible", "Removed " + inv.label]));
     } else if (isOddSpace(cp) && !disabled.has(ODD_SPACE_RULE_ID)) {
       cells.push(new Cell(" ", i, i + 1, [ODD_SPACE_RULE_ID, "space", "Normalized a " + ODD_SPACE_LABEL]));
+    } else if (TYPOGRAPHY.has(cp) && !disabled.has(TYPOGRAPHY_RULE_ID)) {
+      cells.push(new Cell(TYPOGRAPHY.get(cp), i, i + 1, TYPOGRAPHY_RULE));
     } else {
       cells.push(new Cell(cps[i], i, i + 1, null));
     }
@@ -244,9 +264,46 @@ function buildCells(cps, disabled) {
   return cells;
 }
 
+// A confusable is only a problem when it is hiding inside a word that is
+// otherwise Latin. Replacing them wholesale would destroy genuine Cyrillic or
+// Greek text, so a run is rewritten only when it mixes scripts. Cells whose
+// text is empty (an invisible character already removed) are transparent, so
+// "a<ZWSP>pple" with a Cyrillic a is still seen as one word.
+function isLatinLetter(t) {
+  if (t.length !== 1) return false;
+  const c = t.charCodeAt(0);
+  return (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
+}
+function isConfusableText(t) {
+  return t.length === 1 && CONFUSABLES.has(t.codePointAt(0));
+}
+function homoglyphPass(cells, disabled) {
+  if (disabled.has(CONFUSABLE_RULE_ID)) return cells;
+  let i = 0;
+  while (i < cells.length) {
+    const wordish = (c) => isLatinLetter(c.text) || isConfusableText(c.text);
+    if (!wordish(cells[i])) { i++; continue; }
+    let j = i, lastWord = i, hasLatin = false, hasConfusable = false;
+    while (j < cells.length && (wordish(cells[j]) || cells[j].text === "")) {
+      if (isLatinLetter(cells[j].text)) { hasLatin = true; lastWord = j; }
+      else if (isConfusableText(cells[j].text)) { hasConfusable = true; lastWord = j; }
+      j++;
+    }
+    if (hasLatin && hasConfusable) {
+      for (let k = i; k <= lastWord; k++) {
+        if (!isConfusableText(cells[k].text)) continue;
+        const to = CONFUSABLES.get(cells[k].text.codePointAt(0));
+        cells[k] = new Cell(to, cells[k].src0, cells[k].src1, CONFUSABLE_RULE);
+      }
+    }
+    i = Math.max(j, i + 1);
+  }
+  return cells;
+}
+
 function cleanCells(text, disabled) {
   const cps = Array.from(text); // code-point array
-  let cells = buildCells(cps, disabled);
+  let cells = homoglyphPass(buildCells(cps, disabled), disabled);
   let current = cells.map((c) => c.text).join("");
   // Run the dash/space passes to a FIXED POINT, not once. A single pass is not
   // idempotent: replacing an em dash can manufacture the spacing that arms the
@@ -467,6 +524,15 @@ export function analyzeAiSignals(text) {
     signals.push({ id: "signal.rule-of-three", points: 6, message: "Some rule-of-three phrasing" });
   }
 
+  const markdownHits = countMatches(text, MARKDOWN_RE);
+  if (markdownHits >= 2) {
+    score += 10;
+    signals.push({ id: "signal.markdown-artifacts", points: 10, message: `Markdown left in the text (${markdownHits} marks), a sign of a paste from a chat window` });
+  } else if (markdownHits === 1) {
+    score += 5;
+    signals.push({ id: "signal.markdown-artifacts", points: 5, message: "A markdown mark left in the text" });
+  }
+
   let enumHits = 0;
   for (const w of ENUMERATORS) {
     enumHits += countMatches(lowered, new RegExp("\\b" + escapeRe(w.text) + "\\b", "g"));
@@ -583,6 +649,10 @@ export function clean(text, options = {}) {
   // chain like "—– " merges into one edit that removed two dashes.
   const isDashCp = (cp) => cp === 0x2014 || cp === 0x2015 || cp === 0x2013;
   const dashesN = countConsumed(isDashCp);
+  // Same measured-by-consumption rule as the others: a confusable left inside a
+  // genuinely Cyrillic word is never consumed, so it is never counted.
+  const homoglyphsN = countConsumed((cp) => CONFUSABLES.has(cp));
+  const typographyN = countConsumed((cp) => TYPOGRAPHY.has(cp));
   const cpLen = Array.from(text).length;
 
   return {
@@ -598,6 +668,10 @@ export function clean(text, options = {}) {
       invisible: invisibleN,
       oddSpaces: oddSpaceN,
       dashes: dashesN,
+      homoglyphs: homoglyphsN,
+      typography: typographyN,
+      // hidden keeps its original meaning (invisible + look-alike spaces),
+      // because callers show it as "stripped N hidden characters".
       hidden: invisibleN + oddSpaceN,
       flagged: flags.length,
     },

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fetchit-engine"
-version = "0.2.0"
+version = "0.3.0"
 description = "Deterministic text cleanup and AI-writing heuristics. Runs entirely in your process; text never leaves it."
 readme = "README.md"
 requires-python = ">=3.8"

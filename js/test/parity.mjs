@@ -19,6 +19,8 @@ const rulesetData = JSON.parse(
 );
 const INVISIBLE_RANGES = rulesetData.invisibleRanges;
 const ODD_SPACE_RANGES = rulesetData.oddSpaceRanges;
+const CONFUSABLE_CPS = new Set(rulesetData.confusables.map((c) => c.cp));
+const TYPOGRAPHY_CPS = new Set(rulesetData.typography.map((c) => c.cp));
 const root = join(here, "..", "..");
 const vectors = JSON.parse(readFileSync(join(root, "engine-core", "vectors.json"), "utf8")).vectors;
 
@@ -136,6 +138,23 @@ vectors.forEach((v, i) => {
   }
   const isDashCp = (cp) => cp === 0x2014 || cp === 0x2015 || cp === 0x2013;
   const dashesRemoved = countIn(v.input, isDashCp) - countIn(js.cleaned.text, isDashCp);
+  // Homoglyphs and typography are measured the same way: what disappeared
+  // between input and output. A confusable left inside a genuinely Cyrillic
+  // word survives into the output, so it correctly does not count.
+  const isConfusableCp = (cp) => CONFUSABLE_CPS.has(cp);
+  const isTypographyCp = (cp) => TYPOGRAPHY_CPS.has(cp);
+  const homoglyphsRemoved =
+    countIn(v.input, isConfusableCp) - countIn(js.cleaned.text, isConfusableCp);
+  const typographyRemoved =
+    countIn(v.input, isTypographyCp) - countIn(js.cleaned.text, isTypographyCp);
+  if (js.summary.homoglyphs !== homoglyphsRemoved) {
+    failures++;
+    console.log(`FAIL summary.homoglyphs  [${v.name}] reported ${js.summary.homoglyphs}, actually replaced ${homoglyphsRemoved}`);
+  }
+  if (js.summary.typography !== typographyRemoved) {
+    failures++;
+    console.log(`FAIL summary.typography  [${v.name}] reported ${js.summary.typography}, actually replaced ${typographyRemoved}`);
+  }
   if (js.summary.dashes !== dashesRemoved) {
     failures++;
     console.log(`FAIL summary.dashes  [${v.name}] reported ${js.summary.dashes}, actually removed ${dashesRemoved}`);

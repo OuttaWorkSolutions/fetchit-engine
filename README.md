@@ -1,9 +1,10 @@
 # Fetch It AI engine
 
 Deterministic text cleanup and AI writing tells, as a library you run inside your
-own process. It strips the invisible characters and look-alike spaces that
-survive a copy and paste out of an AI chat, swaps clause em dashes for natural
-commas, and flags the wording that commonly reads as AI written.
+own process. It strips the invisible characters, look-alike spaces and
+look-alike letters that survive a copy and paste out of an AI chat, swaps
+clause em dashes for natural commas, normalizes smart punctuation, and flags
+the wording that commonly reads as AI written.
 
 **Your users' text never leaves your process.** There is no network call, no API
 key for the core, and no model. The engine is a set of pure functions.

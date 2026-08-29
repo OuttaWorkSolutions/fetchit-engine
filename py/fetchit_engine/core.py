@@ -15,7 +15,7 @@ import json
 import os
 import re
 
-ENGINE_VERSION = "0.2.0"
+ENGINE_VERSION = "0.3.0"
 
 # --- ruleset (single source of truth, shared with the JS package) -----------
 _RULESET_PATH = os.path.join(
@@ -36,6 +36,14 @@ _INVISIBLE_RANGES = RULESET["invisibleRanges"]
 _ODD_SPACE_RANGES = RULESET["oddSpaceRanges"]
 _ODD_SPACE_RULE_ID = RULESET["oddSpaceRuleId"]
 _ODD_SPACE_LABEL = RULESET["oddSpaceLabel"]
+_CONFUSABLE_RULE_ID = RULESET["confusableRuleId"]
+_CONFUSABLE_LABEL = RULESET["confusableLabel"]
+_TYPOGRAPHY_RULE_ID = RULESET["typographyRuleId"]
+_TYPOGRAPHY_LABEL = RULESET["typographyLabel"]
+# code point -> replacement, built once from the shared tables so both
+# languages derive the same lookup from the same data.
+_CONFUSABLES = {c["cp"]: c["to"] for c in RULESET["confusables"]}
+_TYPOGRAPHY = {c["cp"]: c["to"] for c in RULESET["typography"]}
 _T = RULESET["thresholds"]
 MIN_CHARS = _T["MIN_CHARS"]
 MIN_WORDS = _T["MIN_WORDS"]
@@ -59,8 +67,16 @@ _RULE_OF_THREE = re.compile(
     r"\b[A-Za-z]+,\s+[A-Za-z]+,\s+and\s+[A-Za-z]+\b", re.IGNORECASE | re.ASCII
 )
 _LIST_MARKER = re.compile(r"^\s*(?:[-*•·]|\d+[.)])\s+", re.MULTILINE | re.ASCII)
-_CONTRACTION = re.compile(r"\b[A-Za-z]+'(?:t|s|re|ve|ll|d|m)\b", re.IGNORECASE | re.ASCII)
-_WORD = re.compile(r"[A-Za-z']+")
+# U+2019 is included deliberately. Word processors and AI assistants emit the
+# curly apostrophe, and matching only the straight one made this signal report
+# "almost no contractions" on prose that was full of them, inflating the score
+# by 10 points, while _WORD split "don’t" into two words.
+_CONTRACTION = re.compile(r"\b[A-Za-z]+['’](?:t|s|re|ve|ll|d|m)\b", re.IGNORECASE | re.ASCII)
+_WORD = re.compile(r"[A-Za-z'’]+")
+# Markdown that survived a paste out of a chat window into running prose.
+_MARKDOWN = re.compile(
+    r"\*\*[^*\n]+\*\*|__[^_\n]+__|^#{1,6}[ \t]|\[[^\]\n]+\]\([^)\n]+\)", re.MULTILINE
+)
 # Sentence split: same as the JS splitSentences(). ASCII whitespace only.
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])[ \t\n\r\f\v]+", re.ASCII)
 # One shared whitespace set for trimming and word splitting, identical in both
@@ -97,6 +113,8 @@ def _dash_rule_for(rep):
 
 
 _COLLAPSE_RULE = ("space.collapse", "space", "Collapsed repeated spaces")
+_CONFUSABLE_RULE = (_CONFUSABLE_RULE_ID, "homoglyph", "Replaced a " + _CONFUSABLE_LABEL)
+_TYPOGRAPHY_RULE = (_TYPOGRAPHY_RULE_ID, "typography", "Normalized a " + _TYPOGRAPHY_LABEL)
 _SPACE_BEFORE_RULE = ("punct.space-before", "space", "Removed a space before punctuation")
 
 # What a matched dash run becomes. A clause dash reads as a pause, so the
@@ -138,7 +156,9 @@ def _dash_match_replacement(m):
 # Priority when several passes touch the same characters and their cells merge.
 # Higher wins the label. Dash beats space cleanup beats invisible.
 _RULE_PRIORITY = {
+    "homoglyph.mixed-script": 45,
     "dash.spaced": 40,
+    "typography.smart": 35,
     "space.lookalike": 30,
     "space.collapse": 20,
     "punct.space-before": 15,
@@ -262,6 +282,8 @@ def _build_cells(text, disabled=frozenset()):
             cells.append(_Cell("", i, i + 1, (inv["id"], "invisible", "Removed " + inv["label"])))
         elif _is_odd_space(cp) and _ODD_SPACE_RULE_ID not in disabled:
             cells.append(_Cell(" ", i, i + 1, (_ODD_SPACE_RULE_ID, "space", "Normalized a " + _ODD_SPACE_LABEL)))
+        elif cp in _TYPOGRAPHY and _TYPOGRAPHY_RULE_ID not in disabled:
+            cells.append(_Cell(_TYPOGRAPHY[cp], i, i + 1, _TYPOGRAPHY_RULE))
         else:
             cells.append(_Cell(ch, i, i + 1, None))
     return cells
@@ -293,12 +315,57 @@ def _cells_to_edits(cells, text):
     return edits
 
 
+def _is_latin_letter(t):
+    return len(t) == 1 and (65 <= ord(t) <= 90 or 97 <= ord(t) <= 122)
+
+
+def _is_confusable_text(t):
+    return len(t) == 1 and ord(t) in _CONFUSABLES
+
+
+def _homoglyph_pass(cells, disabled=frozenset()):
+    """A confusable is only a problem when it hides inside a word that is
+    otherwise Latin. Replacing them wholesale would destroy genuine Cyrillic or
+    Greek text, so a run is rewritten only when it MIXES scripts. Cells whose
+    text is empty (an invisible character already removed) are transparent, so
+    "a<ZWSP>pple" with a Cyrillic a is still seen as one word.
+    Mirrors homoglyphPass in the JS engine."""
+    if _CONFUSABLE_RULE_ID in disabled:
+        return cells
+    wordish = lambda c: _is_latin_letter(c.text) or _is_confusable_text(c.text)
+    i = 0
+    while i < len(cells):
+        if not wordish(cells[i]):
+            i += 1
+            continue
+        j = i
+        last_word = i
+        has_latin = False
+        has_confusable = False
+        while j < len(cells) and (wordish(cells[j]) or cells[j].text == ""):
+            if _is_latin_letter(cells[j].text):
+                has_latin = True
+                last_word = j
+            elif _is_confusable_text(cells[j].text):
+                has_confusable = True
+                last_word = j
+            j += 1
+        if has_latin and has_confusable:
+            for k in range(i, last_word + 1):
+                if not _is_confusable_text(cells[k].text):
+                    continue
+                cells[k] = _Cell(_CONFUSABLES[ord(cells[k].text)],
+                                 cells[k].src0, cells[k].src1, _CONFUSABLE_RULE)
+        i = max(j, i + 1)
+    return cells
+
+
 def _clean_cells(text, disabled=frozenset()):
     """Full clean pipeline over cells. Mirrors clean_text() in text_tools.py:
     rebuild (invisible + odd space), then, only if a dash was present, the em
     dash pass plus multi-space collapse and space-before-punct tidy. A disabled
     rule id skips its pass entirely, so cleaned text and the edit list agree."""
-    cells = _build_cells(text, disabled)
+    cells = _homoglyph_pass(_build_cells(text, disabled), disabled)
     current = "".join(c.text for c in cells)
     # Run the dash/space passes to a FIXED POINT, not once. A single pass is
     # not idempotent: replacing an em dash can manufacture the spacing that
@@ -458,6 +525,16 @@ def analyze_ai_signals(text):
                         "message": "Some rule-of-three phrasing"})
 
     # 6. List structure.
+    markdown_hits = len(_MARKDOWN.findall(text))
+    if markdown_hits >= 2:
+        score += 10
+        signals.append({"id": "signal.markdown-artifacts", "points": 10,
+                        "message": "Markdown left in the text (%d marks), a sign of a paste from a chat window" % markdown_hits})
+    elif markdown_hits == 1:
+        score += 5
+        signals.append({"id": "signal.markdown-artifacts", "points": 5,
+                        "message": "A markdown mark left in the text"})
+
     enum_hits = sum(len(re.findall(r"\b" + re.escape(w["text"]) + r"\b", lowered, re.ASCII))
                     for w in _ENUMERATORS)
     marker_hits = len(_LIST_MARKER.findall(text))
@@ -554,6 +631,10 @@ def clean(text, options=None):
     # Dashes count by consumed CHARACTER too: with the fixed-point dash pass, a
     # chain like "—– " merges into one edit that removed two dashes.
     dashes_n = _count_consumed(lambda cp: cp in (0x2014, 0x2015, 0x2013))
+    # Same measured-by-consumption rule: a confusable left inside a genuinely
+    # Cyrillic word is never consumed, so it is never counted.
+    homoglyphs_n = _count_consumed(lambda cp: cp in _CONFUSABLES)
+    typography_n = _count_consumed(lambda cp: cp in _TYPOGRAPHY)
 
     return {
         "engineVersion": ENGINE_VERSION,
@@ -568,6 +649,8 @@ def clean(text, options=None):
             "invisible": invisible_n,
             "oddSpaces": oddspace_n,
             "dashes": dashes_n,
+            "homoglyphs": homoglyphs_n,
+            "typography": typography_n,
             "hidden": invisible_n + oddspace_n,
             "flagged": len(flags),
         },

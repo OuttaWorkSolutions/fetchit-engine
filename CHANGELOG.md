@@ -14,6 +14,51 @@ Two things are versioned here, and they move independently:
 
 Nothing yet.
 
+## 0.3.0 - ruleset 2026-08-29
+
+Three new deterministic rules and one repaired signal. Cleaning behaviour for
+everything that already worked is unchanged.
+
+**Added: look-alike letters (`homoglyph.mixed-script`).** A Cyrillic `а` or a
+Greek `Ο` sitting inside an otherwise Latin word is now detected and replaced
+with its Latin twin. These survive copy and paste, are invisible to a reader,
+and are exactly what breaks search, spam filters and applicant tracking
+systems. **The rule only fires on MIXED-SCRIPT words**: a run has to contain at
+least one ASCII letter before any confusable in it is touched, so genuine
+Cyrillic or Greek text passes through untouched. 40 confusables ship in the
+ruleset, chosen conservatively: only glyphs that are visually identical in
+common fonts, never merely similar, and never fullwidth forms.
+
+**Added: smart punctuation (`typography.smart`).** Curly quotes, curly
+apostrophes, single and double primes, and the ellipsis character normalize to
+their plain ASCII equivalents (the ellipsis expands to three stops). 13 marks
+in the ruleset.
+
+**Added: a markdown signal (`signal.markdown-artifacts`).** Bold markers,
+setext headings and inline links left in running prose score 5 or 10 points as
+a sign of a paste straight out of a chat window. This is a signal only; it
+never edits your text.
+
+**Fixed: the contraction signal was blind to the curly apostrophe**, which is
+the one AI assistants and word processors actually emit. Identical prose scored
+15 with `'` and 25 with `’`, because `CONTRACTION_RE` matched only the straight
+form and reported "almost no contractions" about text that was full of them.
+`WORD_RE` had the same gap, so `don’t` counted as two words and skewed the
+length statistics as well. Both now accept U+2019.
+
+**Summary gains `homoglyphs` and `typography` counts.** `hidden` keeps its
+existing meaning (invisible + look-alike spaces), because callers show it as
+"stripped N hidden characters". Both new counts are measured by consumed
+characters like the others, so a confusable deliberately left inside a Cyrillic
+word is never counted.
+
+**Harness:** 57 parity vectors (12 new, including genuine Cyrillic that must
+survive, a confusable spanning a removed zero-width space, and mixed and pure
+scripts in one text), the input-vs-output invariant extended to both new
+counts in both languages, and 24,000 fuzz cases across six seeds with
+confusables, smart punctuation, real Cyrillic words and markdown added to the
+alphabet.
+
 ## @fetchitai/review 0.2.1
 
 **Fixed: the peer dependency range excluded the matching engine.** review

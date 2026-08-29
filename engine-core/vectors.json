@@ -201,6 +201,54 @@
     {
       "name": "paren-adjacent-dash-no-comma",
       "input": "an aside (—inner—) here"
+    },
+    {
+      "name": "homoglyph-cyrillic-in-latin-word",
+      "input": "The аnalysis of our rеvenue modеl."
+    },
+    {
+      "name": "homoglyph-genuine-cyrillic-untouched",
+      "input": "Привет, как дела?"
+    },
+    {
+      "name": "homoglyph-mixed-and-pure-in-one-text",
+      "input": "Москва and Mоscow"
+    },
+    {
+      "name": "homoglyph-greek-uppercase",
+      "input": "The ΑPI returns ΟK."
+    },
+    {
+      "name": "homoglyph-across-removed-invisible",
+      "input": "Rеv​enue grew"
+    },
+    {
+      "name": "homoglyph-uppercase-cyrillic-word-start",
+      "input": "Аpple shipped it"
+    },
+    {
+      "name": "typography-curly-quotes",
+      "input": "The team’s report said “fine”."
+    },
+    {
+      "name": "typography-ellipsis-expands",
+      "input": "We waited… then left."
+    },
+    {
+      "name": "typography-primes",
+      "input": "6′13″ tall"
+    },
+    {
+      "name": "typography-with-dash-and-hidden",
+      "input": "It’s here​—now."
+    },
+    {
+      "name": "homoglyph-and-typography-together",
+      "input": "Rеvenue’s up… a lot."
+    },
+    {
+      "name": "markdown-artifacts-signal",
+      "input": "**Key findings**\n\nRevenue grew across every channel we measured this quarter, and the trend held for six consecutive weeks without a single reversal in any region.\n\n## Next steps\n\nWe will continue to monitor the situation closely and report back with a fuller analysis once the remaining figures have been verified by the finance team."
     }
   ]
 }

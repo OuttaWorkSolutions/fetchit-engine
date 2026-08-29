@@ -12,7 +12,7 @@ export type OffsetUnit = "codePoint" | "utf16CodeUnit";
 export interface Edit {
   id: string;
   ruleId: string;
-  category: "invisible" | "space" | "dash";
+  category: "invisible" | "space" | "dash" | "homoglyph" | "typography";
   severity: "auto";
   start: number;
   end: number;
@@ -53,7 +53,18 @@ export interface CleanResult {
   edits: Edit[];
   flags: Flag[];
   aiReport: AiReport;
-  summary: { invisible: number; oddSpaces: number; dashes: number; hidden: number; flagged: number };
+  summary: {
+    invisible: number;
+    oddSpaces: number;
+    dashes: number;
+    /** Look-alike letters from another script, replaced only inside otherwise-Latin words. */
+    homoglyphs: number;
+    /** Smart quotes, primes and ellipses normalized to plain ASCII. */
+    typography: number;
+    /** invisible + oddSpaces. Unchanged meaning: what callers show as "hidden characters". */
+    hidden: number;
+    flagged: number;
+  };
 }
 
 export interface CleanOptions {
