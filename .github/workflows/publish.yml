@@ -49,9 +49,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: "https://registry.npmjs.org"
       - name: npm with OIDC trusted-publishing support
-        run: npm install -g npm@latest
+        run: |
+          npm install -g npm@latest
+          # Printed so a failed run says which npm actually ran. Trusted
+          # publishing needs 11.5.1 or newer, and a global install does not
+          # always win the PATH.
+          echo "npm $(npm --version) at $(which npm)"
+          echo "--- npm auth config the job will use ---"
+          npm config list || true
       - name: Tag must match the lockstep version
         run: |
           TAG="${GITHUB_REF_NAME#v}"
