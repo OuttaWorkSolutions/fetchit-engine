@@ -34,8 +34,6 @@ jobs:
         run: node js/test/fuzz.mjs 4000 12345
       - name: Python invariants
         run: python py/test_parity.py
-      - name: Spell core
-        run: python py/test_spell.py
 
   publish-npm:
     needs: test

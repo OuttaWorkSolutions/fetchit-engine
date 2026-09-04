@@ -17,11 +17,27 @@
  */
 import { clean, applyEdits, findAiSpans, analyzeAiSignals } from "@fetchitai/engine";
 
+// Every category clean() can emit. The engine emits five: invisible, space,
+// dash, homoglyph, typography. Until 2026-08-31 this map held only the first
+// three, and because the panel rendered Object.keys(CATEGORY_LABEL) while
+// _finalText() applied every edit NOT in _rejected, homoglyph and typography
+// fixes were always applied, never shown, and impossible to reject. Someone who
+// wanted to keep their curly quotes had no way to say so and no sign they had
+// been changed.
+//
+// The labels match the wording the consumer tool uses for the same categories.
 const CATEGORY_LABEL = {
   invisible: "Hidden characters",
   space: "Look-alike spaces",
   dash: "Em dashes",
+  homoglyph: "Look-alike letters",
+  typography: "Smart punctuation",
 };
+
+// Fall back to the raw category name for anything the engine adds later. The
+// point is that an unlabelled category still gets a checkbox, so a new engine
+// category can never again be silently applied with no way to refuse it.
+const categoryLabel = (cat) => CATEGORY_LABEL[cat] || cat;
 
 const STYLE = `
 :host {
@@ -76,6 +92,8 @@ textarea.edit {
 .meter-label { display: flex; justify-content: space-between; align-items: baseline; font-size: .85rem; color: var(--fr-muted); }
 .badge { font-weight: 700; font-size: .82rem; padding: 2px 9px; border-radius: 999px; color: #fff; }
 .badge.low { background: #2E7D46; } .badge.moderate { background: #C9820A; } .badge.high { background: var(--fr-red); }
+/* "unknown" is not a low score, it is the absence of one. Neutral grey, never green. */
+.badge.unknown { background: #8A929E; }
 .meter { height: 8px; border-radius: 999px; background: #E3E6EB; overflow: hidden; margin: 6px 0 4px; }
 .meter > i { display: block; height: 100%; }
 .meter.low > i { background: #2E7D46; } .meter.moderate > i { background: #C9820A; } .meter.high > i { background: var(--fr-red); }
@@ -109,15 +127,62 @@ class FetchitReview extends HTMLElement {
     this._rejected = new Set(); // categories the user turned off
     this._working = null;       // manual-edit text; null = use auto-clean
     this._editing = false;
+    this._badge = true;
+    this._buttons = { apply: true, copy: true, edit: true };
   }
 
-  set text(v) { this._input = v == null ? "" : String(v); this._working = null; this._rejected.clear(); this._render(); }
+  /**
+   * Replacing the text drops any hand edit, because that edit belonged to the
+   * old text. Category toggles are KEPT: they are a standing preference about
+   * which fixes the reader wants ("never touch my curly quotes"), not a fact
+   * about one document, and silently re-enabling a fix somebody had switched
+   * off is the kind of surprise this widget exists to avoid. Call
+   * resetRejected() for a genuinely clean slate.
+   */
+  set text(v) { this._input = v == null ? "" : String(v); this._working = null; this._render(); }
   get text() { return this._input; }
+
+  /** The text the host would receive from Apply right now, edits and toggles applied. */
+  get finalText() { return this._finalText(); }
+
   set onApply(fn) { this._onApply = fn; }
+  get onApply() { return this._onApply; }
+
+  /** Attribution footer. A real accessor, so setting it re-renders. */
+  set badge(v) { this._badge = v !== false; this._render(); }
+  get badge() { return this._badge; }
+
+  /** Which action buttons to show, e.g. { copy: false }. Unspecified keys stay on. */
+  set buttons(v) { this._buttons = Object.assign({ apply: true, copy: true, edit: true }, v || {}); this._render(); }
+  get buttons() { return Object.assign({}, this._buttons); }
+
+  /** Turn every automatic fix back on. */
+  resetRejected() { this._rejected.clear(); this._render(); }
+
+  /**
+   * Detach and drop references. Listeners live on nodes inside the shadow root,
+   * so clearing it releases them; the element is removed if still in the tree.
+   */
+  destroy() {
+    this._root.innerHTML = "";
+    this._onApply = null;
+    this._working = null;
+    if (this.isConnected && this.parentNode) this.parentNode.removeChild(this);
+  }
 
   connectedCallback() { if (!this._root.firstChild) this._render(); }
 
   _finalText() {
+    // While the hand editor is open, the TEXTAREA is the current text. _working
+    // only catches up when Done is pressed, so reading it here would hand back
+    // the text from before this edit session. A host that hides its own body
+    // field and reads finalText at Send would then send the pre-edit copy
+    // without any sign - the exact silent drop this getter exists to prevent,
+    // one layer down. Apply and Copy route through here too, so all three agree.
+    if (this._editing) {
+      const ta = this._root.querySelector("textarea.edit");
+      if (ta) return ta.value;
+    }
     if (this._working != null) return this._working;
     const r = clean(this._input);
     const accepted = r.edits.filter((e) => !this._rejected.has(e.category)).map((e) => e.id);
@@ -128,8 +193,20 @@ class FetchitReview extends HTMLElement {
     const result = clean(this._input);
     const text = this._finalText();
     const report = analyzeAiSignals(text);
-    const level = report.status === "ok" ? report.level : "low";
-    const score = report.status === "ok" ? report.score : 0;
+    // The engine returns too_short / empty when it DECLINES to score. Until
+    // 2026-08-31 both rendered as a green LOW at 0%, which told the reader the
+    // text had been checked and come back clean when nothing had been checked
+    // at all. Short drafts are common, so this was the usual case, not an edge
+    // one. Say "not checked" instead, in neutral grey.
+    const scored = report.status === "ok";
+    const level = scored ? report.level : "unknown";
+    const score = scored ? report.score : 0;
+    const badgeText = scored ? level.toUpperCase() : "NOT CHECKED";
+    const badgeTitle = scored
+      ? "Heuristic estimate of AI-writing signals. Not proof."
+      : report.status === "empty"
+        ? "No text to check yet."
+        : "Too short to check: the estimate needs a longer passage to mean anything.";
 
     // group auto-edits by category for the accept/reject toggles
     const byCat = {};
@@ -154,12 +231,13 @@ class FetchitReview extends HTMLElement {
       if (!text) reviewHtml = `<span class="empty">Nothing to review yet.</span>`;
     }
 
-    const fixesHtml = Object.keys(CATEGORY_LABEL)
-      .filter((cat) => byCat[cat])
+    // Iterate the categories the engine ACTUALLY emitted, not a fixed label
+    // list, so every applied fix is visible and refusable by construction.
+    const fixesHtml = Object.keys(byCat)
       .map((cat) => `
         <label class="fix">
-          <input type="checkbox" data-cat="${cat}" ${this._rejected.has(cat) ? "" : "checked"}>
-          <span>${CATEGORY_LABEL[cat]}</span>
+          <input type="checkbox" data-cat="${esc(cat)}" ${this._rejected.has(cat) ? "" : "checked"}>
+          <span>${esc(categoryLabel(cat))}</span>
           <span class="n">${byCat[cat]}</span>
         </label>`).join("") || `<div class="empty">No automatic fixes needed.</div>`;
 
@@ -176,22 +254,22 @@ class FetchitReview extends HTMLElement {
             ? `<textarea class="edit">${esc(text)}</textarea>`
             : `<div class="review">${reviewHtml}</div>`}
           <div class="row">
-            <button class="btn" id="apply">Use this text</button>
-            <button class="btn ghost" id="copy">Copy</button>
-            <button class="btn ghost" id="edit">${this._editing ? "Done editing" : "Edit by hand"}</button>
+            ${this._buttons.apply ? `<button class="btn" id="apply">Apply</button>` : ""}
+            ${this._buttons.copy ? `<button class="btn ghost" id="copy">Copy</button>` : ""}
+            ${this._buttons.edit ? `<button class="btn ghost" id="edit">${this._editing ? "Done" : "Edit"}</button>` : ""}
           </div>
         </div>
         <div class="side">
           <div class="meter-label">
             <span>AI-writing signals</span>
-            <span class="badge ${level}">${level.toUpperCase()}</span>
+            <span class="badge ${level}" title="${esc(badgeTitle)}">${esc(badgeText)}</span>
           </div>
           <div class="meter ${level}"><i style="width:${score}%"></i></div>
           <div class="sec">Automatic fixes</div>
           ${fixesHtml}
           <div class="sec">AI-sounding phrases</div>
           ${phrasesHtml}
-          ${this.badge === false ? "" : `<div class="foot">Powered by <a href="https://fetchitai.com" target="_blank" rel="noopener">Fetch It AI</a></div>`}
+          ${this._badge ? `<div class="foot">Powered by <a href="https://fetchitai.com" target="_blank" rel="noopener">Fetch It AI</a></div>` : ""}
         </div>
       </div>`;
 
@@ -203,17 +281,19 @@ class FetchitReview extends HTMLElement {
         this._render();
       });
     });
-    const applyBtn = this._root.getElementById("apply");
-    applyBtn.addEventListener("click", () => {
+    // Any of these can be switched off via the buttons option, so bind defensively.
+    const on = (id, fn) => { const el = this._root.getElementById(id); if (el) el.addEventListener("click", fn); };
+
+    on("apply", () => {
       const finalText = this._finalText();
       if (this._onApply) this._onApply(finalText, { rulesetVersion: result.rulesetVersion, rejected: [...this._rejected] });
       this.dispatchEvent(new CustomEvent("apply", { detail: { text: finalText } }));
     });
-    this._root.getElementById("copy").addEventListener("click", () => {
+    on("copy", () => {
       const t = this._finalText();
       if (navigator.clipboard) navigator.clipboard.writeText(t).catch(() => {});
     });
-    this._root.getElementById("edit").addEventListener("click", () => {
+    on("edit", () => {
       if (this._editing) {
         const ta = this._root.querySelector("textarea.edit");
         this._working = ta ? ta.value : this._working;
@@ -229,13 +309,27 @@ if (typeof customElements !== "undefined" && !customElements.get("fetchit-review
   customElements.define("fetchit-review", FetchitReview);
 }
 
+/**
+ * Mount the widget inside `host`.
+ *
+ * options:
+ *   text     initial text to review
+ *   onApply  (finalText, meta) called when Apply is pressed
+ *   badge    false hides the attribution footer
+ *   buttons  { apply, copy, edit } - any set to false hides that button.
+ *            Hosts that write the result back themselves usually want
+ *            { apply: false }, since in a host where the destination field is
+ *            hidden, an Apply the reader forgets to press silently sends the
+ *            pre-edit copy. Read `el.finalText` instead.
+ */
 export function attachReview(host, options = {}) {
   const el = document.createElement("fetchit-review");
-  if (options.text != null) el.text = options.text;
-  if (options.onApply) el.onApply = options.onApply;
+  if (options.buttons) el.buttons = options.buttons;
   // Attribution is on by default and off on request. Under Apache-2.0 a
   // caller could delete the markup anyway, so gating it would be theatre.
   if (options.badge === false) el.badge = false;
+  if (options.text != null) el.text = options.text;
+  if (options.onApply) el.onApply = options.onApply;
   host.appendChild(el);
   return el;
 }

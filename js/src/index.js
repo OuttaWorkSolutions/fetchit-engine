@@ -13,7 +13,7 @@
  */
 import ruleset from "./ruleset.data.js";
 
-export const ENGINE_VERSION = "0.3.0";
+export const ENGINE_VERSION = "0.4.0";
 export const RULESET_VERSION = ruleset.rulesetVersion;
 
 const PHRASES = ruleset.phrases;

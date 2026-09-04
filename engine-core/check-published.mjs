@@ -110,7 +110,19 @@ if (bad === 0) {
   console.log("PUBLISH STATE OK: everything local is live on the registries.");
   process.exit(0);
 } else {
-  console.log("ACTION NEEDED: the owner publishes (npm OTP / PyPI token), from fetchit-engine/:");
+  // Publishing moved to tag-triggered CI with OIDC trusted publishing at 0.3.0.
+  // This used to print the manual token commands as THE action, which sends the
+  // owner around the CI gate and asks for credentials the release no longer uses.
+  console.log("ACTION NEEDED: publish by pushing a tag from fetchit-engine/ (CI runs the");
+  console.log("gate, then publishes via OIDC; versions already live are skipped, so a tag");
+  console.log("is safe to re-run):");
+  console.log("");
+  console.log("  git tag v" + localEngine);
+  console.log("  git push origin v" + localEngine);
+  console.log("");
+  console.log("A tag runs the workflow AS IT WAS AT THAT TAG, so a workflow fix needs the");
+  console.log("tag moved: git tag -f v" + localEngine + "  then  git push -f origin v" + localEngine);
+  console.log("Fallback if CI is unavailable, from fetchit-engine/ (see RELEASING.md):");
   console.log("  cd js            then: npm publish --access public");
   console.log("  cd js/review     then: npm publish --access public");
   console.log("  cd py            then: python -m build   then: python -m twine upload dist/<the new files>");

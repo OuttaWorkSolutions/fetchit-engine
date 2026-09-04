@@ -12,8 +12,25 @@ import { clean, applyEdits } from "../src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "..");
-const COUNT = Number(process.argv[2] || 4000);
-let seed = Number(process.argv[3] || 12345) >>> 0;
+// Arguments are POSITIONAL. Validate them, because the failure mode of not
+// doing so is silent and worse than a crash: `fuzz.mjs --seed 1` makes COUNT
+// NaN, `i < NaN` is false on the first test, the loop runs zero cases, and the
+// script prints "FUZZ OK" and exits 0. A gate that reports success without
+// testing anything is the one outcome this file must never produce.
+function positiveInt(raw, fallback, name) {
+  if (raw === undefined) return fallback;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) {
+    console.error(`fuzz.mjs: ${name} must be a positive integer, got ${JSON.stringify(raw)}`);
+    console.error("usage: node packages/js/test/fuzz.mjs [count] [seed]   (positional, no flags)");
+    process.exit(2);
+  }
+  return n;
+}
+
+const COUNT = positiveInt(process.argv[2], 4000, "count");
+const SEED_ARG = positiveInt(process.argv[3], 12345, "seed");
+let seed = SEED_ARG >>> 0;
 
 // mulberry32 PRNG (reproducible)
 function rand() {
@@ -98,10 +115,16 @@ for (let i = 0; i < items.length; i++) {
 }
 
 console.log("");
+// Belt and braces: never report OK unless every requested case was actually
+// compared. Guards against any future path that silently shortens the run.
+if (items.length !== COUNT) {
+  console.log(`FUZZ FAILED  compared ${items.length} cases but ${COUNT} were requested (seed ${SEED_ARG})`);
+  process.exit(1);
+}
 if (failures === 0) {
-  console.log(`FUZZ OK  ${COUNT} random cases (seed ${process.argv[3] || 12345}), JS === PY, invariants hold`);
+  console.log(`FUZZ OK  ${COUNT} random cases (seed ${SEED_ARG}), JS === PY, invariants hold`);
   process.exit(0);
 } else {
-  console.log(`FUZZ FAILED  ${failures}/${COUNT} diverged (seed ${process.argv[3] || 12345})`);
+  console.log(`FUZZ FAILED  ${failures}/${COUNT} diverged (seed ${SEED_ARG})`);
   process.exit(1);
 }

@@ -15,7 +15,7 @@ import json
 import os
 import re
 
-ENGINE_VERSION = "0.3.0"
+ENGINE_VERSION = "0.4.0"
 
 # --- ruleset (single source of truth, shared with the JS package) -----------
 _RULESET_PATH = os.path.join(

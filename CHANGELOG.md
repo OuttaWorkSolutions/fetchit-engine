@@ -14,6 +14,55 @@ Two things are versioned here, and they move independently:
 
 Nothing yet.
 
+## 0.4.0 - ruleset 2026-08-29
+
+No change to cleaning behaviour, and the ruleset is untouched: `clean()`,
+`analyze_ai_signals()` and every other engine function return exactly what they
+returned at 0.3.0, byte for byte in both languages. This release is the review
+widget and one removal.
+
+**Fixed: two fix categories were invisible and could not be refused.**
+`@fetchitai/review` labelled only `invisible`, `space` and `dash`, but the
+engine emits five. Because the panel rendered its label list while the widget
+applied every edit NOT explicitly rejected, `homoglyph` and `typography` fixes
+were always applied, never shown, and impossible to turn off. Someone who
+wanted to keep their curly quotes had no way to say so and no sign they had
+been changed. The panel now iterates the categories the engine actually
+emitted, so a category added to the engine later gets a checkbox automatically
+instead of silently applying.
+
+**Fixed: the AI meter said LOW when it meant "not checked".** `too_short` and
+`empty` both rendered a green LOW badge at 0%, which reads as a clean bill of
+health on text the engine had explicitly declined to score. Short drafts are
+the common case, so this was the usual state rather than an edge one. Those
+statuses now render a neutral grey NOT CHECKED with a title saying which case
+it is.
+
+**Fixed: `finalText` returned stale text while the hand editor was open.** The
+working copy only caught up when Done was pressed, so a host that hides its own
+body field and reads the text at send time would send the pre-edit copy with no
+sign. Apply and Copy read through the same path, so all three now agree with
+what is on screen.
+
+**Added to `@fetchitai/review`:** a `finalText` getter; a `buttons` option
+(`{apply, copy, edit}`, all true by default) so a host can hide actions it
+provides itself; `badge` as a real accessor that re-renders; `destroy()`; and
+`resetRejected()`. Buttons are relabelled Apply / Edit / Done, which is shorter
+and stops the labels wrapping in a narrow panel.
+
+**Changed: replacing `text` now KEEPS category toggles.** They are a standing
+preference about which fixes the reader wants, not a fact about one document,
+so silently re-enabling a fix somebody switched off was the surprising
+behaviour. Call `resetRejected()` for a clean slate.
+
+**Removed: `fetchit_engine.spell_core` and the `[spell]` extra.** It was
+extracted from the desktop app, which was retired; it was never exported from
+`__init__`, the web engine never used it because browsers spellcheck natively,
+and it advertised an optional `pyspellchecker` dependency inside a package
+whose point is having none. Python and JavaScript now expose the same API
+again, `toUtf16Offsets` aside, which exists only because JavaScript strings are
+UTF-16 and Python's are not.
+
 ## 0.3.0 - ruleset 2026-08-29
 
 Three new deterministic rules and one repaired signal. Cleaning behaviour for
