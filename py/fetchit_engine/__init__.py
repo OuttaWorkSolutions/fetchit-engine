@@ -1,6 +1,6 @@
 """fetchit-engine: deterministic text cleanup and AI-writing heuristics.
 
-Public API mirrors @fetchit/engine (JavaScript). See core.py for the
+Public API mirrors @fetchitai/engine (JavaScript). See core.py for the
 CleanResult contract; parity is enforced by packages/engine-core/vectors.json.
 """
 from .core import (

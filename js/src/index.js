@@ -13,7 +13,7 @@
  */
 import ruleset from "./ruleset.data.js";
 
-export const ENGINE_VERSION = "0.4.0";
+export const ENGINE_VERSION = "0.5.0";
 export const RULESET_VERSION = ruleset.rulesetVersion;
 
 const PHRASES = ruleset.phrases;
@@ -54,8 +54,48 @@ const LIST_MARKER_RE = /^[ \t\n\r\f\v]*(?:[-*•·]|\d+[.)])[ \t\n\r\f\v]+/gm;
 // by 10 points, while WORD_RE split "don’t" into two words.
 const CONTRACTION_RE = /\b[A-Za-z]+['’](?:t|s|re|ve|ll|d|m)\b/gi;
 const WORD_RE = /[A-Za-z'’]+/g;
-// Markdown that survived a paste out of a chat window into running prose.
-const MARKDOWN_RE = /\*\*[^*\n]+\*\*|__[^_\n]+__|^#{1,6}[ \t]|\[[^\]\n]+\]\([^)\n]+\)/gm;
+// Markdown that survived a paste out of a chat window into running prose: bold,
+// underline-bold and headings. Markdown LINKS and images are deliberately NOT
+// counted, because they are common in ordinary writing and scoring them as an AI
+// tell is a false positive. Mirrors _MARKDOWN in core.py.
+const MARKDOWN_RE = /\*\*[^*\n]+\*\*|__[^_\n]+__|^#{1,6}[ \t]/gm;
+
+// URLs and markdown link targets are literal, not prose: cleaning must leave them
+// byte-identical or it breaks the link (an em dash in a path becomes a comma, a
+// look-alike letter in a domain gets rewritten). The scheme is spelled out rather
+// than using the /i flag, and whitespace is an explicit class rather than \S, so
+// JS and Python match the same spans. Mirrors _URL_RE in core.py.
+const URL_RE = /(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/|[Ww][Ww][Ww]\.)[^ \t\n\r\f\v)]+|\]\([^)\n]+\)/g;
+
+// Phrase matching is WHOLE-WORD, like the enumerators, so "landscape" no longer
+// fires inside "landscapers". A \b is applied at an edge only when that edge is a
+// word character: three shipped phrases end in a comma ("in conclusion,"), where
+// a trailing \b would demand a letter after the comma and never match. All
+// phrases start with a letter, so the leading \b is always valid. No lookbehind
+// (Safari < 16.4 rejects the literal). Built once; mirrors _PHRASE_RES in core.py.
+function phraseBoundary(phrase) {
+  return {
+    start: /^[A-Za-z0-9]/.test(phrase) ? "\\b" : "",
+    end: /[A-Za-z0-9]$/.test(phrase) ? "\\b" : "",
+  };
+}
+const PHRASE_RES = PHRASES.map((p) => {
+  const b = phraseBoundary(p.text);
+  return { id: p.id, text: p.text, re: new RegExp(b.start + escapeRe(p.text) + b.end, "g") };
+});
+
+// A ZERO WIDTH JOINER (U+200D) between two emoji fuses them into one glyph:
+// family emoji, professions (woman + ZWJ + laptop), the rainbow and other flags.
+// Removing it as an invisible character shatters the emoji into its parts, so a
+// ZWJ is kept when BOTH neighbours are emoji-ish. A ZWJ hidden inside Latin text
+// has non-emoji neighbours and is still removed. Mirrors _is_emoji_context.
+const ZWJ_CP = 0x200d;
+function isEmojiContext(cp) {
+  return (cp >= 0x1f000 && cp <= 0x1faff) || // pictographs, emoticons, supplemental, regional indicators
+    (cp >= 0x2600 && cp <= 0x27bf) ||         // misc symbols + dingbats (☀ ✂ ❤ …)
+    (cp >= 0x2b00 && cp <= 0x2bff) ||         // stars, arrows (⭐ …)
+    cp === 0xfe0f || cp === 0xfe0e;           // emoji / text variation selectors
+}
 
 // One shared whitespace set for trimming, identical to Python _WS.
 const WS = new Set([
@@ -105,8 +145,14 @@ function dashReplacement(beforeCp, afterCp) {
     beforeCp < 0 || WS.has(beforeCp) || NO_COMMA_BEFORE.has(beforeCp) || DASH_CP.has(beforeCp);
   const blockedAfter = afterCp < 0 || NO_COMMA_AFTER.has(afterCp) || DASH_CP.has(afterCp);
   if (blockedBefore || blockedAfter) return " ";
-  if (beforeCp >= 0x30 && beforeCp <= 0x39 && afterCp >= 0x30 && afterCp <= 0x39) return " ";
   return WS.has(afterCp) ? "," : ", ";
+}
+
+// True when a matched dash run sits directly between two digits, e.g. 1914—1918
+// or pages 12 — 14. That is a numeric range, not a clause pause, so the dash and
+// its spacing are left exactly as written (the pass returns null to skip it).
+function isNumberRangeDash(beforeCp, afterCp) {
+  return beforeCp >= 0x30 && beforeCp <= 0x39 && afterCp >= 0x30 && afterCp <= 0x39;
 }
 
 // True code point just before / after UTF-16 index i, or -1 at a boundary.
@@ -124,8 +170,12 @@ function cpBefore(s, i) {
 function cpAfter(s, i) {
   return i < s.length ? s.codePointAt(i) : -1;
 }
-const dashMatchReplacement = (m) =>
-  dashReplacement(cpBefore(m.input, m.index), cpAfter(m.input, m.index + m[0].length));
+const dashMatchReplacement = (m) => {
+  const before = cpBefore(m.input, m.index);
+  const after = cpAfter(m.input, m.index + m[0].length);
+  if (isNumberRangeDash(before, after)) return null; // leave a numeric range dash untouched
+  return dashReplacement(before, after);
+};
 
 const RULE_PRIORITY = {
   "homoglyph.mixed-script": 45,
@@ -140,12 +190,10 @@ const RULE_PRIORITY = {
 // the input. Every rule phrase is ASCII, so this never misses a match, and it
 // is identical to _ascii_lower in Python.
 function asciiLower(text) {
-  let out = "";
-  for (let i = 0; i < text.length; i++) {
-    const o = text.charCodeAt(i);
-    out += o >= 65 && o <= 90 ? String.fromCharCode(o + 32) : text[i];
-  }
-  return out;
+  // Only A-Z, so length and code-point positions are preserved and offsets map
+  // 1:1 onto the input. A native replace is far faster than a char-by-char string
+  // build on long text; identical result. Mirrors _ascii_lower's translate table.
+  return text.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
 }
 
 function invisibleRule(cp) {
@@ -179,12 +227,29 @@ function utf16ToCodePointMap(text) {
 
 // One working-buffer unit, carrying provenance back to the input.
 class Cell {
-  constructor(text, src0, src1, rule = null) {
+  constructor(text, src0, src1, rule = null, prot = false) {
     this.text = text; // "" for a deletion
     this.src0 = src0; // half-open code-point range in the INPUT
     this.src1 = src1;
     this.rule = rule; // [ruleId, category, message] or null
+    this.protected = prot; // inside a URL / link target: no pass may touch it
   }
+}
+
+// A boolean per input code point: true where the code point lies inside a URL or
+// markdown link target and must be left byte-identical. Mirrors _protected_flags.
+function protectedFlags(text) {
+  const u2cp = utf16ToCodePointMap(text);
+  const flags = new Array(u2cp[text.length]).fill(false);
+  URL_RE.lastIndex = 0;
+  let m;
+  while ((m = URL_RE.exec(text)) !== null) {
+    const s = u2cp[m.index];
+    const e = u2cp[m.index + m[0].length];
+    for (let i = s; i < e; i++) flags[i] = true;
+    if (m[0].length === 0) URL_RE.lastIndex++;
+  }
+  return flags;
 }
 
 // Run a regex over the string the cells currently spell, replacing each match's
@@ -222,10 +287,22 @@ function regexPass(cells, regex, replacementFn, rule) {
     const ci = cellAt(a);
     const cj = cellAt(b);
     for (let k = last; k < ci; k++) out.push(cells[k]);
+    // A match that touches a protected (URL) cell is left alone, as is a null
+    // replacement: copy the cells through untouched, so any sub-edits they carry
+    // (a normalized odd space beside a numeric-range dash) survive and the span
+    // produces no edit of its own.
+    let anyProtected = false;
+    for (let k = ci; k < cj; k++) if (cells[k].protected) { anyProtected = true; break; }
+    const rep = anyProtected ? null : replacementFn(m);
+    if (rep === null) {
+      for (let k = ci; k < cj; k++) out.push(cells[k]);
+      last = cj;
+      if (m[0].length === 0) regex.lastIndex++;
+      continue;
+    }
     const merged = cells.slice(ci, cj);
     const src0 = merged[0].src0;
     const src1 = merged[merged.length - 1].src1;
-    const rep = replacementFn(m);
     // `rule` may depend on the replacement chosen (the dash pass labels comma
     // and space outcomes differently while keeping one ruleId).
     let best = typeof rule === "function" ? rule(rep) : rule;
@@ -246,12 +323,20 @@ function regexPass(cells, regex, replacementFn, rule) {
 
 // Pass A: invisible removal and look-alike-space normalization, per code point.
 // A disabled rule leaves its characters untouched.
-function buildCells(cps, disabled) {
+function buildCells(cps, disabled, prot) {
   const cells = [];
   for (let i = 0; i < cps.length; i++) {
+    // Inside a URL / link target: leave the code point exactly as written.
+    if (prot[i]) { cells.push(new Cell(cps[i], i, i + 1, null, true)); continue; }
     const cp = cps[i].codePointAt(0);
     const inv = invisibleRule(cp);
-    if (inv && !disabled.has(inv.id)) {
+    // A ZWJ flanked by emoji is joining them, not hiding in text: keep it so the
+    // emoji sequence survives (see isEmojiContext). Its neighbours are read as
+    // code points from the same array, so astral emoji line up.
+    const keepZwj = cp === ZWJ_CP &&
+      isEmojiContext(i > 0 ? cps[i - 1].codePointAt(0) : -1) &&
+      isEmojiContext(i + 1 < cps.length ? cps[i + 1].codePointAt(0) : -1);
+    if (inv && !disabled.has(inv.id) && !keepZwj) {
       cells.push(new Cell("", i, i + 1, [inv.id, "invisible", "Removed " + inv.label]));
     } else if (isOddSpace(cp) && !disabled.has(ODD_SPACE_RULE_ID)) {
       cells.push(new Cell(" ", i, i + 1, [ODD_SPACE_RULE_ID, "space", "Normalized a " + ODD_SPACE_LABEL]));
@@ -281,7 +366,9 @@ function homoglyphPass(cells, disabled) {
   if (disabled.has(CONFUSABLE_RULE_ID)) return cells;
   let i = 0;
   while (i < cells.length) {
-    const wordish = (c) => isLatinLetter(c.text) || isConfusableText(c.text);
+    // A protected (URL) cell is never wordish, so it breaks the run and its
+    // look-alike letters are never rewritten.
+    const wordish = (c) => !c.protected && (isLatinLetter(c.text) || isConfusableText(c.text));
     if (!wordish(cells[i])) { i++; continue; }
     let j = i, lastWord = i, hasLatin = false, hasConfusable = false;
     while (j < cells.length && (wordish(cells[j]) || cells[j].text === "")) {
@@ -303,7 +390,7 @@ function homoglyphPass(cells, disabled) {
 
 function cleanCells(text, disabled) {
   const cps = Array.from(text); // code-point array
-  let cells = homoglyphPass(buildCells(cps, disabled), disabled);
+  let cells = homoglyphPass(buildCells(cps, disabled, protectedFlags(text)), disabled);
   let current = cells.map((c) => c.text).join("");
   // Run the dash/space passes to a FIXED POINT, not once. A single pass is not
   // idempotent: replacing an em dash can manufacture the spacing that arms the
@@ -353,7 +440,7 @@ function cellsToEdits(cells, cps) {
 
 export function rebuildText(text) {
   const cps = Array.from(text);
-  const cells = buildCells(cps, new Set());
+  const cells = buildCells(cps, new Set(), protectedFlags(text));
   let changed = 0;
   for (const c of cells) {
     if (c.rule !== null && cps.slice(c.src0, c.src1).join("") !== c.text) changed++;
@@ -365,8 +452,11 @@ export function removeEmDashes(text) {
   const matches = text.match(EM_DASH_RE);
   const count = matches ? matches.length : 0;
   if (!count) return { text, count: 0 };
-  let out = text.replace(EM_DASH_RE, (m, offset, s) =>
-    dashReplacement(cpBefore(s, offset), cpAfter(s, offset + m.length)));
+  let out = text.replace(EM_DASH_RE, (m, offset, s) => {
+    const before = cpBefore(s, offset), after = cpAfter(s, offset + m.length);
+    if (isNumberRangeDash(before, after)) return m; // leave a numeric range dash untouched
+    return dashReplacement(before, after);
+  });
   out = out.replace(MULTI_SPACE_RE, " ");
   out = out.replace(SPACE_BEFORE_PUNCT_RE, "$1");
   return { text: out, count };
@@ -386,12 +476,12 @@ function findAiFlags(text) {
   const lowered = asciiLower(text);
   const u2cp = utf16ToCodePointMap(text);
   const raw = [];
-  for (const p of PHRASES) {
-    const phrase = p.text;
-    let start = lowered.indexOf(phrase);
-    while (start !== -1) {
-      raw.push([start, start + phrase.length, p.id, phrase]);
-      start = lowered.indexOf(phrase, start + phrase.length);
+  for (const pm of PHRASE_RES) {
+    pm.re.lastIndex = 0;
+    let m;
+    while ((m = pm.re.exec(lowered)) !== null) {
+      raw.push([m.index, m.index + m[0].length, pm.id, pm.text]);
+      if (m[0].length === 0) pm.re.lastIndex++;
     }
   }
   for (const w of ENUMERATORS) {
@@ -487,10 +577,16 @@ export function analyzeAiSignals(text) {
     signals.push({ id: "signal.dash-density", points: 12, message: `Frequent em-dash use (${dashCount} dashes)` });
   }
 
-  const found = PHRASES.map((p) => p.text).filter((p) => lowered.includes(p));
+  // Whole-word, so "landscape" is not counted inside "landscapers". Same matcher
+  // the flags use, so the score and the highlights agree on what is a phrase. One
+  // scan per phrase (count once), not a filter pass plus a separate count pass.
+  const found = [];
+  let occurrences = 0;
+  for (const pm of PHRASE_RES) {
+    const n = (lowered.match(pm.re) || []).length;
+    if (n > 0) { found.push(pm.text); occurrences += n; }
+  }
   if (found.length) {
-    let occurrences = 0;
-    for (const p of found) occurrences += countOccurrences(lowered, p);
     const pts = Math.min(30, 10 * found.length);
     score += pts;
     const shown = found.slice(0, 4).map((p) => `"${p}"`).join(", ");

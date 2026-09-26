@@ -1,5 +1,5 @@
 {
-  "rulesetVersion": "2026-08-29",
+  "rulesetVersion": "2026-09-25",
   "phrases": [
     {
       "id": "ai-wording.delve",
@@ -551,54 +551,6 @@
   "confusableRuleId": "homoglyph.mixed-script",
   "confusableLabel": "look-alike letter",
   "typography": [
-    {
-      "cp": 8216,
-      "to": "'"
-    },
-    {
-      "cp": 8217,
-      "to": "'"
-    },
-    {
-      "cp": 8218,
-      "to": "'"
-    },
-    {
-      "cp": 8219,
-      "to": "'"
-    },
-    {
-      "cp": 8220,
-      "to": "\""
-    },
-    {
-      "cp": 8221,
-      "to": "\""
-    },
-    {
-      "cp": 8222,
-      "to": "\""
-    },
-    {
-      "cp": 8223,
-      "to": "\""
-    },
-    {
-      "cp": 8249,
-      "to": "'"
-    },
-    {
-      "cp": 8250,
-      "to": "'"
-    },
-    {
-      "cp": 8242,
-      "to": "'"
-    },
-    {
-      "cp": 8243,
-      "to": "\""
-    },
     {
       "cp": 8230,
       "to": "..."

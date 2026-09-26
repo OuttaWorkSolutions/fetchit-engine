@@ -1,6 +1,6 @@
 """Fetch It AI text engine (canonical core).
 
-Emits the language-neutral CleanResult contract shared with @fetchit/engine
+Emits the language-neutral CleanResult contract shared with @fetchitai/engine
 (JavaScript). Ported in lockstep; the parity vectors in
 packages/engine-core/vectors.json are the contract both sides must satisfy.
 
@@ -15,7 +15,7 @@ import json
 import os
 import re
 
-ENGINE_VERSION = "0.4.0"
+ENGINE_VERSION = "0.5.0"
 
 # --- ruleset (single source of truth, shared with the JS package) -----------
 _RULESET_PATH = os.path.join(
@@ -73,10 +73,50 @@ _LIST_MARKER = re.compile(r"^\s*(?:[-*•·]|\d+[.)])\s+", re.MULTILINE | re.ASC
 # by 10 points, while _WORD split "don’t" into two words.
 _CONTRACTION = re.compile(r"\b[A-Za-z]+['’](?:t|s|re|ve|ll|d|m)\b", re.IGNORECASE | re.ASCII)
 _WORD = re.compile(r"[A-Za-z'’]+")
-# Markdown that survived a paste out of a chat window into running prose.
-_MARKDOWN = re.compile(
-    r"\*\*[^*\n]+\*\*|__[^_\n]+__|^#{1,6}[ \t]|\[[^\]\n]+\]\([^)\n]+\)", re.MULTILINE
-)
+# Markdown that survived a paste out of a chat window into running prose: bold,
+# underline-bold and headings. Markdown LINKS and images are deliberately NOT
+# counted, because they are common in ordinary writing and scoring them as an AI
+# tell is a false positive. Mirrors MARKDOWN_RE in the JS engine.
+_MARKDOWN = re.compile(r"\*\*[^*\n]+\*\*|__[^_\n]+__|^#{1,6}[ \t]", re.MULTILINE)
+
+# URLs and markdown link targets are literal, not prose: cleaning must leave them
+# byte-identical. Scheme spelled out (no IGNORECASE) and whitespace an explicit
+# class (no \S) so JS and Python match the same spans. Mirrors URL_RE.
+_URL_RE = re.compile(r"(?:[Hh][Tt][Tt][Pp][Ss]?://|[Ww][Ww][Ww]\.)[^ \t\n\r\f\v)]+|\]\([^)\n]+\)")
+
+
+# Phrase matching is WHOLE-WORD, like the enumerators, so "landscape" no longer
+# fires inside "landscapers". A \b is applied at an edge only when that edge is a
+# word character: three shipped phrases end in a comma ("in conclusion,"), where a
+# trailing \b would demand a letter after the comma and never match. All phrases
+# start with a letter, so the leading \b is always valid. Built once; mirrors
+# PHRASE_RES in the JS engine. re.ASCII pins \b to ASCII to match JS.
+def _phrase_boundary(phrase):
+    start = r"\b" if re.match(r"[A-Za-z0-9]", phrase) else ""
+    end = r"\b" if re.search(r"[A-Za-z0-9]$", phrase) else ""
+    return start, end
+
+
+_PHRASE_RES = [
+    (p["id"], p["text"],
+     re.compile("".join((_phrase_boundary(p["text"])[0], re.escape(p["text"]), _phrase_boundary(p["text"])[1])), re.ASCII))
+    for p in _PHRASES
+]
+
+
+# A ZERO WIDTH JOINER (U+200D) between two emoji fuses them into one glyph:
+# family emoji, professions, the rainbow and other flags. Removing it as an
+# invisible character shatters the emoji, so a ZWJ is kept when BOTH neighbours
+# are emoji-ish. A ZWJ hidden inside Latin text has non-emoji neighbours and is
+# still removed. Mirrors isEmojiContext in the JS engine.
+_ZWJ_CP = 0x200D
+
+
+def _is_emoji_context(cp):
+    return (0x1F000 <= cp <= 0x1FAFF      # pictographs, emoticons, supplemental, regional indicators
+            or 0x2600 <= cp <= 0x27BF     # misc symbols + dingbats
+            or 0x2B00 <= cp <= 0x2BFF     # stars, arrows
+            or cp == 0xFE0F or cp == 0xFE0E)  # emoji / text variation selectors
 # Sentence split: same as the JS splitSentences(). ASCII whitespace only.
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])[ \t\n\r\f\v]+", re.ASCII)
 # One shared whitespace set for trimming and word splitting, identical in both
@@ -145,13 +185,22 @@ def _dash_replacement(before_cp, after_cp):
     blocked_after = after_cp < 0 or after_cp in _NO_COMMA_AFTER or after_cp in _DASH_CP
     if blocked_before or blocked_after:
         return " "
-    if 0x30 <= before_cp <= 0x39 and 0x30 <= after_cp <= 0x39:
-        return " "
     return "," if after_cp in _WS else ", "
 
 
+def _is_number_range_dash(before_cp, after_cp):
+    # A matched dash run directly between two digits (1914—1918, pages 12 — 14)
+    # is a numeric range, not a clause pause: leave the dash and its spacing as
+    # written. The pass returns None to skip it.
+    return 0x30 <= before_cp <= 0x39 and 0x30 <= after_cp <= 0x39
+
+
 def _dash_match_replacement(m):
-    return _dash_replacement(_cp_before(m.string, m.start()), _cp_after(m.string, m.end()))
+    before = _cp_before(m.string, m.start())
+    after = _cp_after(m.string, m.end())
+    if _is_number_range_dash(before, after):
+        return None
+    return _dash_replacement(before, after)
 
 # Priority when several passes touch the same characters and their cells merge.
 # Higher wins the label. Dash beats space cleanup beats invisible.
@@ -165,18 +214,15 @@ _RULE_PRIORITY = {
 }
 
 
+_LOWER_TABLE = {c: c + 32 for c in range(65, 91)}
+
+
 def _ascii_lower(text):
     """Lowercase only A-Z. Length- and position-preserving, so offsets computed
     against the result map 1:1 back onto the input. Every rule phrase is ASCII,
-    so this never misses a match, and it is identical in JS."""
-    out = []
-    for ch in text:
-        o = ord(ch)
-        if 65 <= o <= 90:
-            out.append(chr(o + 32))
-        else:
-            out.append(ch)
-    return "".join(out)
+    so this never misses a match, and it is identical in JS. str.translate is far
+    faster than a char loop on long text; mirrors asciiLower's regex replace."""
+    return text.translate(_LOWER_TABLE)
 
 
 def _invisible_rule(codepoint):
@@ -200,14 +246,27 @@ class _Cell:
     src0/src1 half-open code-point range in the INPUT this cell represents
     rule     (ruleId, category, message) if this cell is the product of an edit,
              else None
+    protected inside a URL / link target: no pass may touch it
     """
-    __slots__ = ("text", "src0", "src1", "rule")
+    __slots__ = ("text", "src0", "src1", "rule", "protected")
 
-    def __init__(self, text, src0, src1, rule=None):
+    def __init__(self, text, src0, src1, rule=None, protected=False):
         self.text = text
         self.src0 = src0
         self.src1 = src1
         self.rule = rule
+        self.protected = protected
+
+
+def _protected_flags(text):
+    """A boolean per input code point: True where the code point lies inside a URL
+    or markdown link target and must be left byte-identical. Python str indices are
+    code points, so match offsets line up with cells. Mirrors protectedFlags."""
+    flags = [False] * len(text)
+    for m in _URL_RE.finditer(text):
+        for i in range(m.start(), m.end()):
+            flags[i] = True
+    return flags
 
 
 def _regex_pass(cells, regex, replacement, rule):
@@ -244,15 +303,25 @@ def _regex_pass(cells, regex, replacement, rule):
         a, b = m.start(), m.end()
         ci, cj = cell_at(a), cell_at(b)
         out.extend(cells[last:ci])
-        merged = cells[ci:cj]
-        src0 = merged[0].src0
-        src1 = merged[-1].src1
-        if callable(replacement):
+        # A match that touches a protected (URL) cell is left alone, like a None
+        # replacement: copy its cells through untouched, so any sub-edits they
+        # carry (a normalized odd space beside a numeric-range dash) survive and
+        # the span produces no edit.
+        if any(cells[k].protected for k in range(ci, cj)):
+            rep = None
+        elif callable(replacement):
             rep = replacement(m)
         elif "\\" in replacement:
             rep = m.expand(replacement)
         else:
             rep = replacement
+        if rep is None:
+            out.extend(cells[ci:cj])
+            last = cj
+            continue
+        merged = cells[ci:cj]
+        src0 = merged[0].src0
+        src1 = merged[-1].src1
         # `rule` may depend on the replacement chosen (the dash pass labels
         # comma and space outcomes differently while keeping one ruleId).
         base = rule(rep) if callable(rule) else rule
@@ -270,15 +339,27 @@ def _regex_pass(cells, regex, replacement, rule):
     return out, changed
 
 
-def _build_cells(text, disabled=frozenset()):
+def _build_cells(text, disabled=frozenset(), prot=None):
     """Pass A: invisible removal and look-alike-space normalization, cell-wise
-    by code point. A disabled rule leaves its characters untouched. Returns the
-    cell list (input order preserved)."""
+    by code point. A disabled rule leaves its characters untouched. Code points
+    inside a URL / link target are left exactly as written. Returns the cell list
+    (input order preserved)."""
+    if prot is None:
+        prot = _protected_flags(text)
     cells = []
+    n = len(text)
     for i, ch in enumerate(text):
+        if prot[i]:
+            cells.append(_Cell(text[i], i, i + 1, None, True))
+            continue
         cp = ord(ch)
         inv = _invisible_rule(cp)
-        if inv and inv["id"] not in disabled:
+        # A ZWJ flanked by emoji is joining them, not hiding in text: keep it so
+        # the emoji sequence survives (see _is_emoji_context).
+        keep_zwj = (cp == _ZWJ_CP
+                    and _is_emoji_context(ord(text[i - 1]) if i > 0 else -1)
+                    and _is_emoji_context(ord(text[i + 1]) if i + 1 < n else -1))
+        if inv and inv["id"] not in disabled and not keep_zwj:
             cells.append(_Cell("", i, i + 1, (inv["id"], "invisible", "Removed " + inv["label"])))
         elif _is_odd_space(cp) and _ODD_SPACE_RULE_ID not in disabled:
             cells.append(_Cell(" ", i, i + 1, (_ODD_SPACE_RULE_ID, "space", "Normalized a " + _ODD_SPACE_LABEL)))
@@ -332,7 +413,9 @@ def _homoglyph_pass(cells, disabled=frozenset()):
     Mirrors homoglyphPass in the JS engine."""
     if _CONFUSABLE_RULE_ID in disabled:
         return cells
-    wordish = lambda c: _is_latin_letter(c.text) or _is_confusable_text(c.text)
+    # A protected (URL) cell is never wordish, so it breaks the run and its
+    # look-alike letters are never rewritten.
+    wordish = lambda c: (not c.protected) and (_is_latin_letter(c.text) or _is_confusable_text(c.text))
     i = 0
     while i < len(cells):
         if not wordish(cells[i]):
@@ -407,7 +490,15 @@ def remove_em_dashes(text):
     count = len(_EM_DASH.findall(text))
     if not count:
         return text, 0
-    new = _EM_DASH.sub(_dash_match_replacement, text)
+
+    def _repl(m):
+        before = _cp_before(m.string, m.start())
+        after = _cp_after(m.string, m.end())
+        if _is_number_range_dash(before, after):
+            return m.group(0)  # leave a numeric range dash untouched
+        return _dash_replacement(before, after)
+
+    new = _EM_DASH.sub(_repl, text)
     new = _MULTI_SPACE.sub(" ", new)
     new = _SPACE_BEFORE_PUNCT.sub(r"\1", new)
     return new, count
@@ -435,12 +526,9 @@ def find_ai_spans(text):
 def _find_ai_flags(text):
     lowered = _ascii_lower(text)
     raw = []
-    for p in _PHRASES:
-        phrase = p["text"]
-        start = lowered.find(phrase)
-        while start != -1:
-            raw.append((start, start + len(phrase), p["id"], phrase))
-            start = lowered.find(phrase, start + len(phrase))
+    for pid, ptext, pre in _PHRASE_RES:
+        for m in pre.finditer(lowered):
+            raw.append((m.start(), m.end(), pid, ptext))
     for w in _ENUMERATORS:
         for m in re.finditer(r"\b" + re.escape(w["text"]) + r"\b", lowered, re.ASCII):
             raw.append((m.start(), m.end(), w["id"], w["text"]))
@@ -483,10 +571,17 @@ def analyze_ai_signals(text):
         signals.append({"id": "signal.dash-density", "points": 12,
                         "message": "Frequent em-dash use (%d dashes)" % dash_count})
 
-    # 2. Stock AI phrases.
-    found = [p["text"] for p in _PHRASES if p["text"] in lowered]
+    # 2. Stock AI phrases. Whole-word, so "landscape" is not counted inside
+    # "landscapers"; the same matcher the flags use, so score and highlights agree.
+    # One scan per phrase (count once), not a filter pass plus a separate count.
+    found = []
+    occurrences = 0
+    for _pid, ptext, pre in _PHRASE_RES:
+        n = len(pre.findall(lowered))
+        if n > 0:
+            found.append(ptext)
+            occurrences += n
     if found:
-        occurrences = sum(lowered.count(p) for p in found)
         pts = min(30, 10 * len(found))
         score += pts
         shown = ", ".join('"%s"' % p for p in found[:4])

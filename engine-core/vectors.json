@@ -249,6 +249,74 @@
     {
       "name": "markdown-artifacts-signal",
       "input": "**Key findings**\n\nRevenue grew across every channel we measured this quarter, and the trend held for six consecutive weeks without a single reversal in any region.\n\n## Next steps\n\nWe will continue to monitor the situation closely and report back with a fuller analysis once the remaining figures have been verified by the finance team."
+    },
+    {
+      "name": "whole-word-phrase-not-inside-longer-word",
+      "input": "The team delved into it but did not delve, while landscapers admired the landscape."
+    },
+    {
+      "name": "phrase-with-trailing-comma-still-matches",
+      "input": "In conclusion, the plan held together nicely for everyone involved."
+    },
+    {
+      "name": "number-range-em-dash-preserved",
+      "input": "The war 1914—1918 reshaped Europe."
+    },
+    {
+      "name": "number-range-spaced-em-dash-preserved",
+      "input": "See pages 12 — 14 for the details."
+    },
+    {
+      "name": "dash-digit-then-letter-becomes-comma",
+      "input": "In chapter 3—the finale—everything changes."
+    },
+    {
+      "name": "number-range-dash-with-nbsp-around-it",
+      "input": "Rows 12 — 14 need a careful review."
+    },
+    {
+      "name": "emoji-zwj-family-preserved",
+      "input": "Team photo 👨‍👩‍👧 attached to the note."
+    },
+    {
+      "name": "emoji-zwj-profession-preserved",
+      "input": "Ask our 👩‍💻 engineer about it today."
+    },
+    {
+      "name": "emoji-zwj-flag-preserved",
+      "input": "Pride 🏳️‍🌈 month is finally here."
+    },
+    {
+      "name": "zwj-inside-latin-still-removed",
+      "input": "he‍llo world, this is a plain test."
+    },
+    {
+      "name": "url-em-dash-in-path-preserved",
+      "input": "See https://example.com/report—2024 for the details today."
+    },
+    {
+      "name": "url-homoglyph-domain-preserved",
+      "input": "Go to https://exаmple.com right now, please."
+    },
+    {
+      "name": "markdown-link-target-dash-preserved",
+      "input": "Read [the report](https://ex.com/q3—q4) when you can."
+    },
+    {
+      "name": "curly-quotes-left-alone",
+      "input": "She said “hello” and it’s honestly fine by me."
+    },
+    {
+      "name": "ellipsis-still-normalized",
+      "input": "Wait… what exactly happened here?"
+    },
+    {
+      "name": "primes-left-alone",
+      "input": "He stands 6′2″ tall and proud."
+    },
+    {
+      "name": "markdown-link-in-prose-not-a-tell",
+      "input": "Here is a link [docs](https://ex.com/docs) inside a normal sentence that keeps going for a while."
     }
   ]
 }

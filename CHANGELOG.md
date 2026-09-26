@@ -14,6 +14,46 @@ Two things are versioned here, and they move independently:
 
 Nothing yet.
 
+## 0.5.0 - ruleset 2026-09-25
+
+Seven fixes to cleaning and scoring behaviour, mirrored byte-for-byte in both
+languages (74 parity vectors). The ruleset date moves because the typography
+table changed.
+
+**Whole-word phrase matching.** Phrases were matched by bare substring, so
+`landscape` fired inside `landscapers` and `delve` inside `delved`. They now
+match on word boundaries like the enumerators do, in both the highlighter and
+the scorer. A `\b` is applied at an edge only when that edge is a word
+character, so phrases that end in a comma (`in conclusion,`) still match; no
+lookbehind is used.
+
+**Emoji are no longer shattered.** A zero-width joiner (U+200D) between two
+emoji was stripped as an invisible character, breaking family emoji,
+professions and flags. A ZWJ is now kept when both neighbours are emoji; a ZWJ
+hidden inside Latin text is still removed.
+
+**Numeric ranges keep their dash.** A dash between two digits (`1914-1918`,
+`pages 12 - 14`, with em dashes) was turned into a space; it is now left exactly
+as written, the same protection unspaced en-dash ranges already had.
+
+**URLs and markdown link targets are left byte-identical.** Cleaning was
+corrupting links: an em dash in a path became a comma, a look-alike letter in a
+domain was rewritten. Code points inside a URL or `](...)` target are now
+protected from every pass, while the same edits still apply everywhere else.
+
+**Quotes are left as written.** Curly quotes, curly apostrophes and measurement
+primes are no longer normalized to straight ASCII; they are legitimate
+typography, not an AI tell. The ellipsis is still normalized to `...`. The
+ruleset `typography` table is trimmed to the ellipsis only.
+
+**Markdown is scored more fairly.** Markdown links and images are no longer
+counted as an AI-writing tell (they are common in ordinary writing). Bold,
+underline-bold and headings still count.
+
+**Faster on long text (no output change).** `ascii_lower` uses a native
+translate/replace instead of a character loop, and phrase scoring counts each
+phrase once instead of a filter pass plus a separate count pass.
+
 ## 0.4.0 - ruleset 2026-08-29
 
 No change to cleaning behaviour, and the ruleset is untouched: `clean()`,
